@@ -14,7 +14,7 @@ function getSupabase() {
   )
 }
 
-const ROLE_TYPES = ['AE', 'SDR', 'CSM', 'RevOps', 'Marketing', 'Growth']
+const ROLE_TYPES = ['AE', 'SDR', 'CSM', 'AM', 'RevOps', 'Marketing', 'Growth', 'Sales', 'Partnerships', 'Enablement']
 
 function FilterPill({ role, selected }: { role: string; selected: boolean }) {
   const href = role === 'all' ? '/jobs' : `/jobs?role=${role}`

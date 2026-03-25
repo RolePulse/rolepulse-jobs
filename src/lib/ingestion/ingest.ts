@@ -10,7 +10,8 @@ const supabase = createClient(
   { db: { schema: 'jobs' } }
 )
 
-function classifyRole(title: string): string {
+// Returns null for non-GTM roles — these are skipped during ingestion
+function classifyRole(title: string): string | null {
   const t = title.toLowerCase()
   if (/\bae\b|account executive/.test(t)) return 'AE'
   if (/\bsdr\b|\bbdr\b|business development|sales development/.test(t)) return 'SDR'
@@ -20,7 +21,10 @@ function classifyRole(title: string): string {
   if (/growth/.test(t)) return 'Growth'
   if (/account manager/.test(t)) return 'AM'
   if (/partnership|alliances/.test(t)) return 'Partnerships'
-  return 'Other'
+  if (/\bsales\b/.test(t)) return 'Sales'
+  if (/enablement/.test(t)) return 'Enablement'
+  if (/demand gen/.test(t)) return 'Marketing'
+  return null // non-GTM — skip
 }
 
 async function ingestGreenhouse(token: string, companyId: string): Promise<{ count: number; error: string | null }> {
@@ -31,7 +35,10 @@ async function ingestGreenhouse(token: string, companyId: string): Promise<{ cou
     const data = await res.json() as { jobs?: any[] }
     const jobs = data.jobs || []
 
+    let gtmCount = 0
     for (const job of jobs) {
+      const roleType = classifyRole(job.title)
+      if (!roleType) continue // skip non-GTM roles
       const slug = `${job.id}-${(job.title as string).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`
       const { error } = await supabase
         .from('jobs')
@@ -43,7 +50,7 @@ async function ingestGreenhouse(token: string, companyId: string): Promise<{ cou
           apply_url: job.absolute_url,
           source: 'greenhouse',
           external_id: String(job.id),
-          role_type: classifyRole(job.title),
+          role_type: roleType,
           location: job.location?.name || '',
           remote: (job.location?.name || '').toLowerCase().includes('remote'),
           status: 'active',
@@ -51,8 +58,9 @@ async function ingestGreenhouse(token: string, companyId: string): Promise<{ cou
           expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         }, { onConflict: 'source,external_id' })
       if (error) console.error(`  ✗ job upsert: ${error.message}`)
+      else gtmCount++
     }
-    return { count: jobs.length, error: null }
+    return { count: gtmCount, error: null }
   } catch (err) {
     return { count: 0, error: String(err) }
   }
@@ -75,7 +83,10 @@ async function ingestAshby(token: string, companyId: string): Promise<{ count: n
     const data = await res.json() as { data?: { jobBoard?: { jobPostings?: any[] } } }
     const jobs = data.data?.jobBoard?.jobPostings || []
 
+    let gtmCount = 0
     for (const job of jobs) {
+      const roleType = classifyRole(job.title)
+      if (!roleType) continue // skip non-GTM roles
       const slug = `${job.id}-${(job.title as string).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`
       const { error } = await supabase
         .from('jobs')
@@ -87,7 +98,7 @@ async function ingestAshby(token: string, companyId: string): Promise<{ count: n
           apply_url: job.applicationLink,
           source: 'ashby',
           external_id: job.id,
-          role_type: classifyRole(job.title),
+          role_type: roleType,
           location: job.locationName || '',
           remote: job.isRemote || false,
           status: 'active',
@@ -95,8 +106,9 @@ async function ingestAshby(token: string, companyId: string): Promise<{ count: n
           expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         }, { onConflict: 'source,external_id' })
       if (error) console.error(`  ✗ job upsert: ${error.message}`)
+      else gtmCount++
     }
-    return { count: jobs.length, error: null }
+    return { count: gtmCount, error: null }
   } catch (err) {
     return { count: 0, error: String(err) }
   }
@@ -109,7 +121,10 @@ async function ingestLever(token: string, companyId: string): Promise<{ count: n
     if (!res.ok) throw new Error(`Lever ${res.status} for token: ${token}`)
     const jobs = await res.json() as any[]
 
+    let gtmCount = 0
     for (const job of jobs) {
+      const roleType = classifyRole(job.text)
+      if (!roleType) continue // skip non-GTM roles
       const slug = `${job.id}-${(job.text as string).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`
       const location = job.categories?.location || job.categories?.allLocations?.[0] || ''
       const { error } = await supabase
@@ -122,7 +137,7 @@ async function ingestLever(token: string, companyId: string): Promise<{ count: n
           apply_url: job.applyUrl || job.hostedUrl,
           source: 'lever',
           external_id: job.id,
-          role_type: classifyRole(job.text),
+          role_type: roleType,
           location,
           remote: location.toLowerCase().includes('remote'),
           status: 'active',
@@ -130,8 +145,9 @@ async function ingestLever(token: string, companyId: string): Promise<{ count: n
           expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         }, { onConflict: 'source,external_id' })
       if (error) console.error(`Failed to upsert Lever job: ${error.message}`)
+      else gtmCount++
     }
-    return { count: jobs.length, error: null }
+    return { count: gtmCount, error: null }
   } catch (err) {
     return { count: 0, error: String(err) }
   }
