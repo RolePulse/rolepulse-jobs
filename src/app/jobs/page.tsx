@@ -6,11 +6,13 @@ import { createClient } from '@supabase/supabase-js'
 import { JobRow } from '@/components/JobRow'
 import { JobRowSkeleton } from '@/components/JobRowSkeleton'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  { db: { schema: 'jobs' } }
-)
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+    { db: { schema: 'jobs' } }
+  )
+}
 
 const ROLE_TYPES = ['AE', 'SDR', 'CSM', 'RevOps', 'Marketing', 'Growth']
 
@@ -42,6 +44,7 @@ function JobsList() {
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
+      const supabase = getSupabase()
 
       const { data: companyData } = await supabase.from('companies').select('*')
       const companyMap = Object.fromEntries(
