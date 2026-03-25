@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import Image from 'next/image'
 import Link from 'next/link'
+import { SaveJobButton } from '@/components/SaveJobButton'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -168,6 +169,10 @@ export default function JobPage() {
                   You&apos;ll be redirected to {company?.name}&apos;s careers page.
                 </p>
               )}
+
+              <div className="mt-3">
+                <SaveJobButton jobId={job.id} />
+              </div>
 
               {/* Meta */}
               <div className="mt-8 space-y-3 text-sm">
