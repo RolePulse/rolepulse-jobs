@@ -6,12 +6,15 @@ import { createClient } from '@supabase/supabase-js'
 import Image from 'next/image'
 import Link from 'next/link'
 import { SaveJobButton } from '@/components/SaveJobButton'
+import { ApplyForm } from '@/components/ApplyForm'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  { db: { schema: 'jobs' } }
-)
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { db: { schema: 'jobs' } }
+  )
+}
 
 function JobPageSkeleton() {
   return (
@@ -42,11 +45,14 @@ export default function JobPage() {
   const slug = params.slug as string
   const [job, setJob] = useState<any>(null)
   const [company, setCompany] = useState<any>(null)
+  const [employer, setEmployer] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [cleanHtml, setCleanHtml] = useState('')
 
   useEffect(() => {
     async function fetchJob() {
+      const supabase = getSupabase()
+
       const { data: jobData } = await supabase
         .from('jobs')
         .select('*')
@@ -56,13 +62,24 @@ export default function JobPage() {
       if (jobData) {
         setJob(jobData)
 
-        const { data: companyData } = await supabase
-          .from('companies')
-          .select('*')
-          .eq('id', jobData.company_id)
-          .single()
+        if (jobData.company_id) {
+          const { data: companyData } = await supabase
+            .from('companies')
+            .select('*')
+            .eq('id', jobData.company_id)
+            .single()
+          setCompany(companyData)
+        }
 
-        setCompany(companyData)
+        // For employer-posted jobs, fetch employer info for company name
+        if (jobData.source === 'employer' && jobData.employer_id) {
+          const { data: employerData } = await supabase
+            .from('employers')
+            .select('company_name')
+            .eq('id', jobData.employer_id)
+            .single()
+          setEmployer(employerData)
+        }
 
         // Sanitize HTML client-side only
         if (jobData.description) {
@@ -93,6 +110,7 @@ export default function JobPage() {
   }
 
   const isAutoSourced = job.source !== 'employer'
+  const displayName = company?.name || employer?.company_name || ''
 
   return (
     <div className="min-h-screen bg-rp-white">
@@ -116,14 +134,14 @@ export default function JobPage() {
             />
           ) : (
             <div className="w-12 h-12 rounded bg-rp-bg flex items-center justify-center text-lg font-semibold text-rp-text-2 flex-shrink-0">
-              {company?.name?.charAt(0)}
+              {displayName?.charAt(0)}
             </div>
           )}
           <div>
             <h1 className="text-4xl font-semibold text-rp-text-1 mb-2 leading-tight">
               {job.title}
             </h1>
-            <p className="text-rp-text-2 font-medium">{company?.name}</p>
+            <p className="text-rp-text-2 font-medium">{displayName}</p>
             <p className="text-sm text-rp-text-3 mt-1">
               {[job.location, job.role_type, job.employment].filter(Boolean).join(' · ')}
             </p>
@@ -153,21 +171,22 @@ export default function JobPage() {
 
             {/* Apply CTA */}
             <div className="sticky top-8">
-              <a
-                href={job.apply_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full bg-rp-accent text-white font-semibold py-3 px-6 rounded-lg text-center hover:bg-rp-accent-dk transition-colors"
-              >
-                {isAutoSourced
-                  ? `Apply on ${company?.name}'s site →`
-                  : 'Apply now →'}
-              </a>
-
-              {isAutoSourced && (
-                <p className="text-xs text-rp-text-3 mt-3 text-center">
-                  You&apos;ll be redirected to {company?.name}&apos;s careers page.
-                </p>
+              {isAutoSourced ? (
+                <>
+                  <a
+                    href={job.apply_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full bg-rp-accent text-white font-semibold py-3 px-6 rounded-lg text-center hover:bg-rp-accent-dk transition-colors"
+                  >
+                    Apply on {displayName}&apos;s site →
+                  </a>
+                  <p className="text-xs text-rp-text-3 mt-3 text-center">
+                    You&apos;ll be redirected to {displayName}&apos;s careers page.
+                  </p>
+                </>
+              ) : (
+                <ApplyForm jobId={job.id} />
               )}
 
               <div className="mt-3">
