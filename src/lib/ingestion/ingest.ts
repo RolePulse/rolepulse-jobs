@@ -1,14 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
-import * as dotenv from 'dotenv'
-import * as path from 'path'
 
-dotenv.config({ path: path.join(__dirname, '../../../.env.local') })
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { db: { schema: 'jobs' } }
-)
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    { db: { schema: 'jobs' } }
+  )
+}
 
 // Returns null for non-GTM roles — these are skipped during ingestion
 function classifyRole(title: string): string | null {
@@ -28,6 +26,7 @@ function classifyRole(title: string): string | null {
 }
 
 async function ingestGreenhouse(token: string, companyId: string): Promise<{ count: number; error: string | null }> {
+  const supabase = getSupabase()
   const url = `https://boards-api.greenhouse.io/v1/boards/${token}/jobs?content=true`
   try {
     const res = await fetch(url)
@@ -67,6 +66,7 @@ async function ingestGreenhouse(token: string, companyId: string): Promise<{ cou
 }
 
 async function ingestAshby(token: string, companyId: string): Promise<{ count: number; error: string | null }> {
+  const supabase = getSupabase()
   const url = 'https://jobs.ashbyhq.com/api/non-user-graphql?op=ApiJobBoardWithTeams'
   const query = `query ApiJobBoardWithTeams($organizationHostedJobsPageName: String!) {
     jobBoard(organizationHostedJobsPageName: $organizationHostedJobsPageName) {
@@ -115,6 +115,7 @@ async function ingestAshby(token: string, companyId: string): Promise<{ count: n
 }
 
 async function ingestLever(token: string, companyId: string): Promise<{ count: number; error: string | null }> {
+  const supabase = getSupabase()
   const url = `https://api.lever.co/v0/postings/${token}?mode=json`
   try {
     const res = await fetch(url)
@@ -157,6 +158,7 @@ export async function runIngestion() {
   const startTime = Date.now()
   let totalInserted = 0
   const errors: Record<string, string> = {}
+  const supabase = getSupabase()
 
   const { data: companies } = await supabase.from('companies').select('*').eq('is_employer', false)
   if (!companies) return { totalInserted: 0, totalExpired: 0, errors: {} }
