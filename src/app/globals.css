@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: #FFFFFF;
+  color: #111111;
+}
+
+h1 { @apply text-5xl font-semibold tracking-tight; }
+h2 { @apply text-2xl font-semibold; }
+p { @apply text-base leading-relaxed; }
