@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@supabase/supabase-js'
 import type { Metadata } from 'next'
+import { CompanyLogo } from '@/components/CompanyLogo'
 
 export const revalidate = 3600
 
@@ -50,22 +50,13 @@ async function getFeaturedJobs() {
   }
 }
 
-function companyColour(name: string): string {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const hue = Math.abs(hash) % 360
-  return `hsl(${hue}, 55%, 45%)`
-}
-
 export default async function HomePage() {
   const [stats, jobs] = await Promise.all([getStats(), getFeaturedJobs()])
 
   return (
     <div className="min-h-screen bg-rp-white">
-      {/* Hero */}
-      <div className="bg-rp-black px-8 pt-28 pb-20">
+      {/* Hero — compact, dark bg */}
+      <div className="bg-rp-black px-8 pt-16 pb-12">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-[56px] font-semibold text-white leading-tight tracking-tight">
             GTM careers
@@ -81,53 +72,33 @@ export default async function HomePage() {
               Browse roles →
             </Link>
           </div>
-        </div>
-      </div>
-
-      {/* Stats bar */}
-      <div className="bg-rp-bg border-b border-rp-border px-8 py-5">
-        <div className="max-w-4xl mx-auto flex gap-10 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-semibold text-rp-text-1">{stats.roleCount.toLocaleString()}</span>
-            <span className="text-sm text-rp-text-3">open roles</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-semibold text-rp-text-1">{stats.companyCount.toLocaleString()}</span>
-            <span className="text-sm text-rp-text-3">companies</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-rp-text-2">Updated daily</span>
+          {/* Stats bar — inside hero */}
+          <div className="mt-6 flex gap-6 flex-wrap text-zinc-500 text-sm">
+            <span>{stats.roleCount.toLocaleString()} open roles</span>
+            <span>·</span>
+            <span>{stats.companyCount.toLocaleString()} companies</span>
+            <span>·</span>
+            <span>Updated daily</span>
           </div>
         </div>
       </div>
 
-      {/* Latest roles */}
+      {/* Latest roles — flat rows, no card wrapper */}
       <div className="max-w-4xl mx-auto px-8 py-12">
         <h2 className="text-xl font-semibold text-rp-text-1 mb-6">Latest roles</h2>
-        <div className="space-y-2">
+        <div>
           {jobs.map((job: any) => (
             <Link
               key={job.id}
               href={`/jobs/${job.slug}`}
-              className="flex items-center gap-4 p-4 rounded-xl border border-rp-border hover:border-rp-accent hover:bg-orange-50 transition-colors group"
+              className="flex items-center gap-4 py-5 border-b border-rp-border hover:bg-rp-bg transition-colors group"
             >
-              {job.company_logo ? (
-                <Image
-                  src={job.company_logo}
-                  alt={job.company_name}
-                  width={36}
-                  height={36}
-                  sizes="36px"
-                  className="rounded flex-shrink-0 object-contain"
-                />
-              ) : (
-                <div
-                  className="w-9 h-9 rounded flex-shrink-0 flex items-center justify-center text-white font-semibold text-sm"
-                  style={{ backgroundColor: companyColour(job.company_name || '?') }}
-                >
-                  {(job.company_name || '?').charAt(0).toUpperCase()}
-                </div>
-              )}
+              <CompanyLogo
+                src={job.company_logo}
+                name={job.company_name || '?'}
+                size={36}
+                useHashColour
+              />
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-rp-text-1 truncate group-hover:text-rp-accent transition-colors">{job.title}</p>
                 <p className="text-sm text-rp-text-3">
@@ -137,7 +108,7 @@ export default async function HomePage() {
                   {job.role_type ? ` · ${job.role_type}` : ''}
                 </p>
               </div>
-              <span className="text-rp-text-3 group-hover:text-rp-accent transition-colors text-sm">→</span>
+              <span className="text-rp-text-3 group-hover:text-rp-accent transition-colors text-sm flex-shrink-0">→</span>
             </Link>
           ))}
         </div>

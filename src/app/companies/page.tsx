@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@supabase/supabase-js'
 import type { Metadata } from 'next'
+import { CompanyLogo } from '@/components/CompanyLogo'
 
 export const revalidate = 3600
 
@@ -16,15 +16,6 @@ function getSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { db: { schema: 'jobs' } }
   )
-}
-
-function companyColour(name: string): string {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const hue = Math.abs(hash) % 360
-  return `hsl(${hue}, 55%, 45%)`
 }
 
 interface Company {
@@ -100,25 +91,12 @@ export default async function CompaniesPage() {
                 href={`/jobs?company=${company.slug}`}
                 className="flex flex-col items-center gap-3 p-5 rounded-xl border border-rp-border bg-white hover:border-rp-accent hover:shadow-sm transition-all group text-center"
               >
-                {company.logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <Image
-                    src={company.logo_url}
-                    alt={company.name}
-                    width={48}
-                    height={48}
-                    sizes="48px"
-                    loading="lazy"
-                    className="w-12 h-12 object-contain rounded"
-                  />
-                ) : (
-                  <div
-                    className="w-12 h-12 rounded flex items-center justify-center text-white font-semibold text-xl"
-                    style={{ backgroundColor: companyColour(company.name) }}
-                  >
-                    {company.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <CompanyLogo
+                  src={company.logo_url}
+                  name={company.name}
+                  size={48}
+                  useHashColour
+                />
                 <div>
                   <p className="text-sm font-medium text-rp-text-1 group-hover:text-rp-accent transition-colors leading-snug">
                     {company.name}
