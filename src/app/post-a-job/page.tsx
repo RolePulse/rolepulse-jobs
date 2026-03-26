@@ -21,6 +21,7 @@ const TIERS = [
     ],
     cta: 'Post Standard',
     highlight: false,
+    newsletter: false,
   },
   {
     name: 'Featured',
@@ -36,21 +37,23 @@ const TIERS = [
     ],
     cta: 'Post Featured',
     highlight: true,
+    newsletter: false,
   },
   {
     name: 'Newsletter',
     price: '$599',
     period: '30 days',
     priceId: 'price_1TEuRMRsDnlecpji7zwi6pKV',
-    description: 'Featured listing plus a dedicated callout in our weekly GTM job digest.',
+    description: 'Featured listing plus a dedicated callout in our weekly GTM newsletter sent to 1,600+ GTM professionals.',
     features: [
       'Everything in Featured',
-      'Callout in weekly email digest',
-      'Sent to 5,000+ GTM subscribers',
-      'Maximum reach',
+      'Dedicated feature in weekly newsletter',
+      '1,600+ GTM subscribers',
+      'Direct inbox placement',
     ],
     cta: 'Post + Newsletter',
     highlight: false,
+    newsletter: true,
   },
 ]
 
@@ -58,6 +61,25 @@ const BUNDLES = [
   { name: '3-Listing Bundle', price: '$599', priceId: 'price_1TEuR6RsDnlecpji4dYGJk9l', description: '3 Standard listings. Best for teams hiring multiple roles.' },
   { name: '5-Listing Bundle', price: '$899', priceId: 'price_1TEuR6RsDnlecpjiVLJRbW5c', description: '5 Standard listings. Biggest saving per role.' },
   { name: 'Founding Rate', price: '$124', priceId: 'price_1TEuRNRsDnlecpjiIB2M7lrJ', description: 'Early access pricing. Limited availability.' },
+]
+
+const FAQ = [
+  {
+    q: 'How long does my listing stay live?',
+    a: '30 days from payment.',
+  },
+  {
+    q: "What's included in the Newsletter tier?",
+    a: 'Job board listing + dedicated feature in the weekly RolePulse newsletter sent to 1,600+ GTM professionals.',
+  },
+  {
+    q: 'Can I edit my listing after posting?',
+    a: 'Yes, from your employer dashboard.',
+  },
+  {
+    q: "What's the Founding Rate?",
+    a: '50% off the Standard listing price for the first 10 employers. One-time offer.',
+  },
 ]
 
 export default function PostAJobPage() {
@@ -78,17 +100,27 @@ export default function PostAJobPage() {
           {TIERS.map((tier) => (
             <div
               key={tier.name}
-              className={`rounded-2xl border p-8 flex flex-col ${
-                tier.highlight
+              className={`rounded-2xl border p-8 flex flex-col relative ${
+                tier.newsletter
+                  ? 'bg-white'
+                  : tier.highlight
                   ? 'border-rp-accent bg-orange-50 shadow-md'
                   : 'border-rp-border bg-white'
               }`}
+              style={tier.newsletter ? { border: '2px solid #F97316' } : undefined}
             >
+              {/* Badge */}
               {tier.highlight && (
                 <span className="text-xs font-semibold text-rp-accent uppercase tracking-widest mb-3">
                   Most popular
                 </span>
               )}
+              {tier.newsletter && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-rp-accent text-white text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
+                  Most popular
+                </span>
+              )}
+
               <div className="mb-4">
                 <p className="text-lg font-semibold text-rp-text-1">{tier.name}</p>
                 <p className="text-4xl font-semibold text-rp-text-1 mt-1">
@@ -97,7 +129,7 @@ export default function PostAJobPage() {
                 </p>
               </div>
               <p className="text-sm text-rp-text-2 mb-6">{tier.description}</p>
-              <ul className="space-y-2 mb-8 flex-1">
+              <ul className="space-y-2 mb-4 flex-1">
                 {tier.features.map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm text-rp-text-2">
                     <span className="text-rp-accent font-bold">✓</span>
@@ -105,10 +137,18 @@ export default function PostAJobPage() {
                   </li>
                 ))}
               </ul>
+
+              {/* Social proof for newsletter tier */}
+              {tier.newsletter && (
+                <p className="text-xs text-rp-text-3 mb-6 mt-2 italic">
+                  1,600 GTM subscribers · 36% open rate · Direct inbox placement
+                </p>
+              )}
+
               <Link
                 href={`/employers/new?tier=${tier.name.toLowerCase()}&price_id=${tier.priceId}`}
-                className={`block text-center py-3 px-6 rounded-lg font-medium transition-colors ${
-                  tier.highlight
+                className={`block text-center py-3 px-6 rounded-lg font-medium transition-colors mt-auto ${
+                  tier.newsletter || tier.highlight
                     ? 'bg-rp-accent text-white hover:bg-rp-accent-dk'
                     : 'bg-rp-black text-white hover:bg-zinc-800'
                 }`}
@@ -136,6 +176,19 @@ export default function PostAJobPage() {
                 >
                   Get started →
                 </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* FAQ */}
+        <div className="mt-16">
+          <h2 className="text-2xl font-semibold text-rp-text-1 mb-8 text-center">Frequently asked questions</h2>
+          <div className="max-w-2xl mx-auto space-y-6">
+            {FAQ.map((item) => (
+              <div key={item.q} className="border-b border-rp-border pb-6">
+                <p className="font-semibold text-rp-text-1 mb-2">{item.q}</p>
+                <p className="text-sm text-rp-text-2">{item.a}</p>
               </div>
             ))}
           </div>
