@@ -1,65 +1,174 @@
-import Image from "next/image";
+import Link from 'next/link'
+import { createClient } from '@supabase/supabase-js'
+import type { Metadata } from 'next'
 
-export default function Home() {
+export const metadata: Metadata = {
+  title: 'RolePulse — GTM careers',
+  description: '2,400+ GTM roles from the best SaaS companies. AE, SDR, CSM, RevOps and more. Updated daily.',
+}
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { db: { schema: 'jobs' } }
+  )
+}
+
+async function getStats(): Promise<{ roleCount: number; companyCount: number }> {
+  try {
+    const supabase = getSupabase()
+    const [{ count: roleCount }, { count: companyCount }] = await Promise.all([
+      supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('companies').select('*', { count: 'exact', head: true }),
+    ])
+    return { roleCount: roleCount || 0, companyCount: companyCount || 0 }
+  } catch {
+    return { roleCount: 2400, companyCount: 50 }
+  }
+}
+
+async function getFeaturedJobs() {
+  try {
+    const supabase = getSupabase()
+    const { data } = await supabase
+      .from('jobs')
+      .select('id, title, slug, location, remote, role_type, posted_at, companies(name, logo_url)')
+      .eq('status', 'active')
+      .order('posted_at', { ascending: false })
+      .limit(6)
+    return (data || []).map((j: any) => ({
+      ...j,
+      company_name: j.companies?.name || '',
+      company_logo: j.companies?.logo_url || null,
+    }))
+  } catch {
+    return []
+  }
+}
+
+function companyColour(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const hue = Math.abs(hash) % 360
+  return `hsl(${hue}, 55%, 45%)`
+}
+
+export default async function HomePage() {
+  const [stats, jobs] = await Promise.all([getStats(), getFeaturedJobs()])
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-rp-white">
+      {/* Hero */}
+      <div className="bg-rp-black px-8 pt-28 pb-20">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-[56px] font-semibold text-white leading-tight tracking-tight">
+            GTM careers
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-lg text-zinc-400 mt-4 max-w-xl">
+            {stats.roleCount.toLocaleString()}+ roles from the best SaaS companies. Updated daily.
           </p>
+          <div className="mt-8">
+            <Link
+              href="/jobs"
+              className="inline-flex items-center px-7 py-3.5 rounded-lg bg-rp-accent text-white font-semibold text-base hover:bg-rp-accent-dk transition-colors"
+            >
+              Browse roles →
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </div>
+
+      {/* Stats bar */}
+      <div className="bg-rp-bg border-b border-rp-border px-8 py-5">
+        <div className="max-w-4xl mx-auto flex gap-10 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-semibold text-rp-text-1">{stats.roleCount.toLocaleString()}</span>
+            <span className="text-sm text-rp-text-3">open roles</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-semibold text-rp-text-1">{stats.companyCount.toLocaleString()}</span>
+            <span className="text-sm text-rp-text-3">companies</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-rp-text-2">Updated daily</span>
+          </div>
         </div>
-      </main>
+      </div>
+
+      {/* Latest roles */}
+      <div className="max-w-4xl mx-auto px-8 py-12">
+        <h2 className="text-xl font-semibold text-rp-text-1 mb-6">Latest roles</h2>
+        <div className="space-y-2">
+          {jobs.map((job: any) => (
+            <Link
+              key={job.id}
+              href={`/jobs/${job.slug}`}
+              className="flex items-center gap-4 p-4 rounded-xl border border-rp-border hover:border-rp-accent hover:bg-orange-50 transition-colors group"
+            >
+              {job.company_logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={job.company_logo}
+                  alt={job.company_name}
+                  width={36}
+                  height={36}
+                  className="rounded flex-shrink-0 object-contain"
+                />
+              ) : (
+                <div
+                  className="w-9 h-9 rounded flex-shrink-0 flex items-center justify-center text-white font-semibold text-sm"
+                  style={{ backgroundColor: companyColour(job.company_name || '?') }}
+                >
+                  {(job.company_name || '?').charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-rp-text-1 truncate group-hover:text-rp-accent transition-colors">{job.title}</p>
+                <p className="text-sm text-rp-text-3">
+                  {job.company_name}
+                  {job.location ? ` · ${job.location}` : ''}
+                  {job.remote ? ' · Remote' : ''}
+                  {job.role_type ? ` · ${job.role_type}` : ''}
+                </p>
+              </div>
+              <span className="text-rp-text-3 group-hover:text-rp-accent transition-colors text-sm">→</span>
+            </Link>
+          ))}
+        </div>
+
+        <div className="mt-8 text-center">
+          <Link
+            href="/jobs"
+            className="text-rp-accent font-medium hover:underline"
+          >
+            View all {stats.roleCount.toLocaleString()} roles →
+          </Link>
+        </div>
+      </div>
+
+      {/* Post a job CTA */}
+      <div className="bg-rp-black mx-8 mb-16 rounded-2xl px-10 py-12 max-w-4xl lg:mx-auto">
+        <h2 className="text-2xl font-semibold text-white mb-2">Hiring GTM talent?</h2>
+        <p className="text-zinc-400 mb-6">Reach 5,000+ GTM professionals actively looking for their next role.</p>
+        <Link
+          href="/post-a-job"
+          className="inline-flex items-center px-6 py-3 rounded-lg bg-rp-accent text-white font-semibold hover:bg-rp-accent-dk transition-colors"
+        >
+          Post a job →
+        </Link>
+      </div>
+
+      {/* Footer */}
+      <div className="border-t border-rp-border px-8 py-8 text-center text-sm text-rp-text-3">
+        Powered by <span className="font-medium text-rp-text-2">RolePulse</span>
+        {' · '}
+        <Link href="/post-a-job" className="hover:text-rp-text-1 transition-colors">Post a job</Link>
+        {' · '}
+        <a href="/privacy" className="hover:text-rp-text-1 transition-colors">Privacy</a>
+      </div>
     </div>
-  );
+  )
 }
