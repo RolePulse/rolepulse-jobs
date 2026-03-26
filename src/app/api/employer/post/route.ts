@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ checkout_url: session.url })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal error'
-    console.error('employer/post error:', err)
+    console.error('employer/post error:', message)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

@@ -6,6 +6,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "RolePulse Jobs",
   description: "GTM careers. 2,400+ roles from GTM SaaS companies. Updated daily.",
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
