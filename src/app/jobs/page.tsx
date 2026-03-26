@@ -227,6 +227,7 @@ function JobsList() {
               </button>
             )}
           </div>
+          <p className="text-xs text-rp-text-3 mt-2">Free to browse · {total > 0 ? total.toLocaleString() : '700+'} open roles · Updated daily</p>
         </div>
       </div>
 
@@ -324,8 +325,8 @@ export default function JobsPage() {
       {/* Header */}
       <div className="border-b border-rp-border px-8 py-16">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-5xl font-semibold text-rp-black leading-tight">
-            GTM careers
+          <h1 className="text-7xl font-semibold text-rp-text-1 leading-tight tracking-tight">
+            <span className="text-rp-accent">GTM</span> careers
           </h1>
           <p className="text-lg text-rp-text-2 mt-3">
             Roles from the best GTM SaaS companies. Updated daily.

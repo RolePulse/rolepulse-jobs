@@ -56,10 +56,16 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-rp-white">
       {/* Hero — compact, dark bg */}
-      <div className="bg-rp-black px-8 pt-16 pb-10">
+      <div
+        className="bg-rp-black px-8 pt-16 pb-10"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}
+      >
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-[56px] font-semibold text-white leading-tight tracking-tight">
-            GTM careers
+          <h1 className="text-[72px] font-semibold text-white leading-tight tracking-tight">
+            <span className="text-rp-accent">GTM</span> careers
           </h1>
           <p className="text-lg text-zinc-400 mt-4 max-w-xl">
             {stats.roleCount.toLocaleString()}+ roles from the best SaaS companies. Updated daily.
@@ -67,7 +73,7 @@ export default async function HomePage() {
           <div className="mt-8">
             <Link
               href="/jobs"
-              className="inline-flex items-center px-7 py-3.5 rounded-lg bg-rp-accent text-white font-semibold text-base hover:bg-rp-accent-dk transition-colors"
+              className="inline-flex items-center px-7 py-3.5 rounded-full bg-rp-accent text-white font-semibold text-base hover:bg-rp-accent-dk transition-colors"
             >
               Browse open roles →
             </Link>
@@ -126,10 +132,10 @@ export default async function HomePage() {
       {/* Post a job CTA */}
       <div className="bg-rp-black mx-8 mb-16 rounded-2xl px-10 py-12 max-w-4xl lg:mx-auto">
         <h2 className="text-2xl font-semibold text-white mb-2">Hiring GTM talent?</h2>
-        <p className="text-zinc-400 mb-6">Reach 5,000+ GTM professionals actively looking for their next role.</p>
+        <p className="text-zinc-400 mb-6">Reach 1,600+ GTM professionals actively looking for their next role.</p>
         <Link
           href="/post-a-job"
-          className="inline-flex items-center px-6 py-3 rounded-lg bg-rp-accent text-white font-semibold hover:bg-rp-accent-dk transition-colors"
+          className="inline-flex items-center px-6 py-3 rounded-full bg-rp-accent text-white font-semibold hover:bg-rp-accent-dk transition-colors"
         >
           Post a job →
         </Link>

@@ -17,7 +17,7 @@ const TIERS = [
       'Live for 30 days',
       'In the main job feed',
       'Role type + location filters',
-      'Native apply flow',
+      'Direct link to your careers page',
     ],
     cta: 'Post Standard',
     highlight: false,
@@ -36,7 +36,7 @@ const TIERS = [
       'Higher click-through rate',
     ],
     cta: 'Post Featured',
-    highlight: true,
+    highlight: false,
     newsletter: false,
   },
   {
@@ -89,7 +89,7 @@ export default function PostAJobPage() {
       <div className="bg-rp-black py-24 px-8 text-center">
         <h1 className="text-5xl font-semibold text-white mb-4">Hire GTM talent</h1>
         <p className="text-lg text-zinc-400 max-w-xl mx-auto">
-          Reach 5,000+ GTM professionals actively looking for their next role. AE, SDR, CSM, RevOps and more.
+          Reach 1,600+ GTM professionals actively hiring right now. AE, SDR, CSM, RevOps and more.
         </p>
       </div>
 
@@ -103,18 +103,11 @@ export default function PostAJobPage() {
               className={`rounded-2xl border p-8 flex flex-col relative ${
                 tier.newsletter
                   ? 'bg-white'
-                  : tier.highlight
-                  ? 'border-rp-accent bg-orange-50 shadow-md'
                   : 'border-rp-border bg-white'
               }`}
               style={tier.newsletter ? { border: '2px solid #F97316' } : undefined}
             >
               {/* Badge */}
-              {tier.highlight && (
-                <span className="text-xs font-semibold text-rp-accent uppercase tracking-widest mb-3">
-                  Most popular
-                </span>
-              )}
               {tier.newsletter && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-rp-accent text-white text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
                   Most popular
@@ -148,7 +141,7 @@ export default function PostAJobPage() {
               <Link
                 href={`/employers/new?tier=${tier.name.toLowerCase()}&price_id=${tier.priceId}`}
                 className={`block text-center py-3 px-6 rounded-lg font-medium transition-colors mt-auto ${
-                  tier.newsletter || tier.highlight
+                  tier.newsletter
                     ? 'bg-rp-accent text-white hover:bg-rp-accent-dk'
                     : 'bg-rp-black text-white hover:bg-zinc-800'
                 }`}
@@ -195,10 +188,13 @@ export default function PostAJobPage() {
         </div>
 
         {/* Trust */}
-        <p className="text-center text-sm text-rp-text-3 mt-12">
-          Secure checkout via Stripe. Questions?{' '}
-          <a href="mailto:hello@rolepulse.com" className="underline">hello@rolepulse.com</a>
-        </p>
+        <div className="text-center mt-12">
+          <p className="text-xs text-rp-text-3">Goes live immediately · Cancel anytime · Questions? Reply to your confirmation email</p>
+          <p className="text-sm text-rp-text-3 mt-2">
+            Secure checkout via Stripe.{' '}
+            <a href="mailto:hello@rolepulse.com" className="underline">hello@rolepulse.com</a>
+          </p>
+        </div>
       </div>
     </div>
   )

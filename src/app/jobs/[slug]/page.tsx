@@ -179,7 +179,7 @@ function ApplyForm({ jobId, jobTitle, companyName }: { jobId: string; jobTitle: 
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 rounded-lg bg-rp-accent text-white font-medium text-sm hover:bg-rp-accent-dk transition-colors disabled:opacity-50"
+          className="w-full py-3 rounded-full bg-rp-accent text-white font-medium text-sm hover:bg-rp-accent-dk transition-colors disabled:opacity-50"
         >
           {loading ? 'Submitting...' : 'Submit application →'}
         </button>
@@ -317,7 +317,21 @@ export default function JobPage() {
                 dangerouslySetInnerHTML={{ __html: cleanHtml }}
               />
             ) : (
-              <p className="text-rp-text-3 italic">No description available.</p>
+              <div className="text-rp-text-3">
+                <p className="mb-3">
+                  This role&apos;s full description is available on {company?.name || 'the company'}&apos;s careers page.
+                </p>
+                {job.apply_url && (
+                  <a
+                    href={job.apply_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-rp-accent hover:underline font-medium text-sm"
+                  >
+                    View full job details on {company?.name || 'their'}&apos;s site →
+                  </a>
+                )}
+              </div>
             )}
 
             {/* Native apply form for employer listings */}
@@ -346,7 +360,7 @@ export default function JobPage() {
                   href={`https://www.cvpulse.io?jd=${encodeURIComponent(job.title + ' at ' + (company?.name || ''))}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-3 block w-full text-center py-2 px-4 rounded-lg bg-rp-accent text-white text-sm font-medium hover:bg-rp-accent-dk transition-colors"
+                  className="mt-3 block w-full text-center py-2 px-4 rounded-full bg-rp-accent text-white text-sm font-medium hover:bg-rp-accent-dk transition-colors"
                 >
                   Score my CV against this role →
                 </a>
@@ -356,7 +370,7 @@ export default function JobPage() {
                 <a
                   href="#apply"
                   onClick={(e) => { e.preventDefault(); document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' }) }}
-                  className="block w-full bg-rp-accent text-white font-semibold py-3 px-6 rounded-lg text-center hover:bg-rp-accent-dk transition-colors"
+                  className="block w-full bg-rp-accent text-white font-semibold py-3 px-6 rounded-full text-center hover:bg-rp-accent-dk transition-colors"
                 >
                   Apply now →
                 </a>
@@ -366,7 +380,7 @@ export default function JobPage() {
                     href={job.apply_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full bg-rp-accent text-white font-semibold py-3 px-6 rounded-lg text-center hover:bg-rp-accent-dk transition-colors"
+                    className="block w-full bg-rp-accent text-white font-semibold py-3 px-6 rounded-full text-center hover:bg-rp-accent-dk transition-colors"
                   >
                     Apply on {company?.name}&apos;s site →
                   </a>

@@ -1,190 +1,124 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import type { Metadata } from 'next'
 
-interface EmployerJob {
-  id: string
-  title: string
-  slug: string
-  location: string
-  remote: boolean
-  role_type: string
-  status: string
-  posted_at: string
-  expires_at: string | null
-  view_count: number
-  application_count: number
+export const metadata: Metadata = {
+  title: 'Post a Job | RolePulse — Hire GTM Talent',
+  description: 'Reach 1,600+ active GTM professionals. AEs, SDRs, CSMs and more. Post a role in minutes.',
 }
 
-export default function EmployerDashboard() {
-  const router = useRouter()
-  const [jobs, setJobs] = useState<EmployerJob[]>([])
-  const [loading, setLoading] = useState(true)
-  const [companyName, setCompanyName] = useState('')
-  const [error, setError] = useState<string | null>(null)
+const TIERS = [
+  {
+    name: 'Standard',
+    price: '$249',
+    priceId: 'price_1TEuR4RsDnlecpjihsgT4H7Z',
+    desc: 'Your listing in the live feed for 30 days.',
+  },
+  {
+    name: 'Featured',
+    price: '$399',
+    priceId: 'price_1TEuR5RsDnlecpjihv6Hxybd',
+    desc: 'Pinned at the top of the feed with a Featured badge.',
+  },
+  {
+    name: 'Newsletter',
+    price: '$599',
+    priceId: 'price_1TEuRMRsDnlecpji7zwi6pKV',
+    desc: 'Featured listing + dedicated callout in the weekly GTM newsletter (1,600+ subscribers).',
+    popular: true,
+  },
+]
 
-  useEffect(() => {
-    async function fetchData() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-
-      if (!user) {
-        router.push('/sign-in')
-        return
-      }
-
-      // Find employer record
-      const { data: employer } = await supabase
-        .from('employers')
-        .select('id, company_id, companies(name)')
-        .eq('user_id', user.id)
-        .single()
-
-      if (!employer) {
-        // No employer account — redirect to create one
-        router.push('/employers/new')
-        return
-      }
-
-      const company = employer.companies as unknown as { name: string } | null
-      setCompanyName(company?.name || '')
-
-      // Fetch jobs for this company
-      const { data: jobData, error: jobError } = await supabase
-        .from('jobs')
-        .select('id, title, slug, location, remote, role_type, status, posted_at, expires_at, view_count')
-        .eq('company_id', employer.company_id)
-        .eq('source', 'employer')
-        .order('posted_at', { ascending: false })
-
-      if (jobError) {
-        setError(jobError.message)
-        setLoading(false)
-        return
-      }
-
-      // Fetch application counts for each job
-      const jobIds = (jobData || []).map((j: { id: string }) => j.id)
-      let appCounts: Record<string, number> = {}
-
-      if (jobIds.length > 0) {
-        const { data: apps } = await supabase
-          .from('applications')
-          .select('job_id')
-          .in('job_id', jobIds)
-
-        appCounts = (apps || []).reduce((acc: Record<string, number>, app: { job_id: string }) => {
-          acc[app.job_id] = (acc[app.job_id] || 0) + 1
-          return acc
-        }, {})
-      }
-
-      setJobs((jobData || []).map((j: any) => ({
-        ...j,
-        application_count: appCounts[j.id] || 0,
-      })))
-      setLoading(false)
-    }
-
-    fetchData()
-  }, [router])
-
-  function statusBadge(status: string) {
-    const styles: Record<string, string> = {
-      active: 'bg-green-100 text-green-700',
-      pending: 'bg-yellow-100 text-yellow-700',
-      expired: 'bg-zinc-100 text-zinc-500',
-      paused: 'bg-orange-100 text-orange-700',
-    }
-    return (
-      <span className={`px-2 py-0.5 rounded text-xs font-medium ${styles[status] || 'bg-zinc-100 text-zinc-500'}`}>
-        {status}
-      </span>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-rp-white flex items-center justify-center">
-        <p className="text-rp-text-3">Loading dashboard...</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-rp-white flex items-center justify-center">
-        <p className="text-red-500">{error}</p>
-      </div>
-    )
-  }
-
+export default function EmployersLandingPage() {
   return (
     <div className="min-h-screen bg-rp-white">
-      <div className="border-b border-rp-border px-8 py-8">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-rp-text-1">{companyName || 'Employer dashboard'}</h1>
-            <p className="text-sm text-rp-text-3 mt-1">{jobs.length} listing{jobs.length !== 1 ? 's' : ''}</p>
-          </div>
+      {/* Hero */}
+      <div className="bg-rp-black py-24 px-8 text-center">
+        <h1 className="text-5xl font-semibold text-white mb-4">
+          Hire GTM talent. Post a role in minutes.
+        </h1>
+        <p className="text-lg text-zinc-400 max-w-xl mx-auto">
+          Reach 1,600+ active GTM professionals. AEs, SDRs, CSMs and more.
+        </p>
+        <div className="mt-8">
           <Link
             href="/post-a-job"
-            className="px-5 py-2.5 rounded-lg bg-rp-accent text-white text-sm font-medium hover:bg-rp-accent-dk transition-colors"
+            className="inline-flex items-center px-8 py-4 rounded-full bg-rp-accent text-white font-semibold text-base hover:bg-rp-accent-dk transition-colors"
           >
-            + Post a job
+            Post a job →
           </Link>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-8 py-8">
-        {jobs.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-rp-text-2 mb-4">No listings yet.</p>
-            <Link href="/post-a-job" className="text-rp-accent underline text-sm">Post your first role →</Link>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {jobs.map((job) => (
-              <div key={job.id} className="border border-rp-border rounded-xl p-5 bg-white">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <Link href={`/jobs/${job.slug}`} className="font-semibold text-rp-text-1 hover:text-rp-accent transition-colors">
-                        {job.title}
-                      </Link>
-                      {statusBadge(job.status)}
-                    </div>
-                    <p className="text-sm text-rp-text-3 mt-1">
-                      {job.location || (job.remote ? 'Remote' : '—')}
-                      {job.role_type ? ` · ${job.role_type}` : ''}
-                      {job.posted_at ? ` · Posted ${new Date(job.posted_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
-                      {job.expires_at ? ` · Expires ${new Date(job.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
-                    </p>
-                  </div>
-                  <Link
-                    href={`/employers/${job.id}/edit`}
-                    className="text-sm text-rp-text-2 border border-rp-border rounded-lg px-3 py-1.5 hover:bg-rp-bg transition-colors whitespace-nowrap"
-                  >
-                    Edit
-                  </Link>
-                </div>
-                <div className="flex gap-6 mt-4 pt-4 border-t border-rp-border">
-                  <div>
-                    <p className="text-xl font-semibold text-rp-text-1">{(job.view_count || 0).toLocaleString()}</p>
-                    <p className="text-xs text-rp-text-3">Views</p>
-                  </div>
-                  <div>
-                    <p className="text-xl font-semibold text-rp-text-1">{job.application_count.toLocaleString()}</p>
-                    <p className="text-xs text-rp-text-3">Applications</p>
-                  </div>
-                </div>
+      {/* 3 steps */}
+      <div className="max-w-4xl mx-auto px-8 py-16">
+        <h2 className="text-2xl font-semibold text-rp-text-1 mb-10 text-center">How it works</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[
+            { step: '1', title: 'Post your role', desc: 'Fill in the job details. Takes under 5 minutes.' },
+            { step: '2', title: 'Get applicants', desc: 'Candidates browse and apply directly through RolePulse.' },
+            { step: '3', title: 'Hire fast', desc: 'Review applications in your employer dashboard. Make your hire.' },
+          ].map((s) => (
+            <div key={s.step} className="text-center">
+              <div className="w-12 h-12 rounded-full bg-rp-accent text-white text-lg font-semibold flex items-center justify-center mx-auto mb-4">
+                {s.step}
+              </div>
+              <p className="font-semibold text-rp-text-1 mb-2">{s.title}</p>
+              <p className="text-sm text-rp-text-2">{s.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Pricing preview */}
+      <div className="bg-rp-bg py-16 px-8">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl font-semibold text-rp-text-1 mb-10 text-center">Simple pricing</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {TIERS.map((tier) => (
+              <div
+                key={tier.name}
+                className={`rounded-2xl border p-8 bg-white flex flex-col relative ${
+                  tier.popular ? 'border-2 border-rp-accent' : 'border-rp-border'
+                }`}
+              >
+                {tier.popular && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-rp-accent text-white text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
+                    Most popular
+                  </span>
+                )}
+                <p className="text-lg font-semibold text-rp-text-1">{tier.name}</p>
+                <p className="text-3xl font-semibold text-rp-text-1 my-2">{tier.price}</p>
+                <p className="text-sm text-rp-text-2 flex-1">{tier.desc}</p>
+                <Link
+                  href={`/post-a-job`}
+                  className={`mt-6 block text-center py-2.5 px-4 rounded-full font-medium text-sm transition-colors ${
+                    tier.popular
+                      ? 'bg-rp-accent text-white hover:bg-rp-accent-dk'
+                      : 'bg-rp-black text-white hover:bg-zinc-800'
+                  }`}
+                >
+                  Get started →
+                </Link>
               </div>
             ))}
           </div>
-        )}
+          <p className="text-center text-sm text-rp-text-3 mt-6">
+            All listings live for 30 days · Secure checkout via Stripe
+          </p>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="max-w-4xl mx-auto px-8 py-16 text-center">
+        <h2 className="text-2xl font-semibold text-rp-text-1 mb-4">Ready to hire?</h2>
+        <p className="text-rp-text-2 mb-8">Join companies already posting on RolePulse.</p>
+        <Link
+          href="/post-a-job"
+          className="inline-flex items-center px-8 py-4 rounded-full bg-rp-accent text-white font-semibold text-base hover:bg-rp-accent-dk transition-colors"
+        >
+          Post a job →
+        </Link>
+        <p className="text-xs text-rp-text-3 mt-3">Goes live immediately · Cancel anytime · Questions? Reply to your confirmation email</p>
       </div>
     </div>
   )

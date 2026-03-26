@@ -66,7 +66,7 @@ export function Nav() {
 
           <Link
             href="/post-a-job"
-            className="text-sm font-medium px-4 py-2 rounded-lg bg-rp-accent text-white hover:bg-rp-accent-dk transition-colors"
+            className="text-sm font-medium px-4 py-2 rounded-full bg-rp-accent text-white hover:bg-rp-accent-dk transition-colors"
           >
             Post a job
           </Link>
@@ -97,7 +97,7 @@ export function Nav() {
                     Job alerts
                   </Link>
                   <Link
-                    href="/employers"
+                    href="/employers/dashboard"
                     className="block px-4 py-2 text-sm text-rp-text-1 hover:bg-rp-bg transition-colors"
                     onClick={() => setAccountOpen(false)}
                   >
@@ -168,7 +168,7 @@ export function Nav() {
             <>
               <Link href="/account/saved" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Saved jobs</Link>
               <Link href="/account/alerts" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Job alerts</Link>
-              <Link href="/employers" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Employer dashboard</Link>
+              <Link href="/employers/dashboard" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Employer dashboard</Link>
               <button onClick={handleSignOut} className="text-left text-sm text-red-400">Sign out</button>
             </>
           ) : (
