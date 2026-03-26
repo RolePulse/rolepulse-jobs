@@ -71,7 +71,7 @@ export default async function CompaniesPage() {
     <div className="min-h-screen bg-rp-white">
       {/* Header */}
       <div className="border-b border-rp-border px-8 py-16">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <h1 className="text-5xl font-semibold text-rp-black leading-tight">Companies</h1>
           <p className="text-lg text-rp-text-2 mt-3">
             {companies.length} companies with active GTM listings.
@@ -80,7 +80,7 @@ export default async function CompaniesPage() {
       </div>
 
       {/* Grid */}
-      <div className="max-w-5xl mx-auto px-8 py-12">
+      <div className="max-w-4xl mx-auto px-4 sm:px-8 py-12">
         {companies.length === 0 ? (
           <p className="text-rp-text-3 text-center py-16">No companies yet.</p>
         ) : (

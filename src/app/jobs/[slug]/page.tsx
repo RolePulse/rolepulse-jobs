@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
+import DOMPurify from 'isomorphic-dompurify'
 import { SaveJobButton } from '@/components/SaveJobButton'
 
 function getSupabase() {
@@ -240,10 +241,13 @@ export default function JobPage() {
           })))
         }
 
-        // Sanitize HTML client-side only
+        // Sanitize HTML — use isomorphic-dompurify (works in both server and client)
         if (jobData.description) {
-          const DOMPurify = (await import('dompurify')).default
-          setCleanHtml(DOMPurify.sanitize(jobData.description))
+          const sanitized = DOMPurify.sanitize(jobData.description, {
+            FORBID_TAGS: ['script', 'iframe', 'style'],
+            FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus'],
+          })
+          setCleanHtml(sanitized)
         }
       }
 
@@ -329,6 +333,25 @@ export default function JobPage() {
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-8">
+              {/* CV Pulse integration slot */}
+              <div className="mb-6 p-4 rounded-lg border border-rp-border bg-rp-bg">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">🎯</span>
+                  <div>
+                    <p className="text-sm font-medium text-rp-text-1">See how your CV matches this role</p>
+                    <p className="text-xs text-rp-text-3 mt-0.5">Match score · Missing keywords · Quick fixes</p>
+                  </div>
+                </div>
+                <a
+                  href={`https://www.cvpulse.io?jd=${encodeURIComponent(job.title + ' at ' + (company?.name || ''))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 block w-full text-center py-2 px-4 rounded-lg bg-rp-accent text-white text-sm font-medium hover:bg-rp-accent-dk transition-colors"
+                >
+                  Score my CV against this role →
+                </a>
+              </div>
+
               {isEmployerListing ? (
                 <a
                   href="#apply"

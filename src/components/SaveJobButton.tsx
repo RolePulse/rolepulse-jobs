@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export function SaveJobButton({ jobId }: { jobId: string }) {
@@ -9,6 +9,7 @@ export function SaveJobButton({ jobId }: { jobId: string }) {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
     async function checkSaved() {
@@ -36,9 +37,40 @@ export function SaveJobButton({ jobId }: { jobId: string }) {
     checkSaved()
   }, [jobId])
 
+  // After sign-up redirect: auto-save job if pending in sessionStorage
+  useEffect(() => {
+    async function handlePendingSave() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const pendingSlug = sessionStorage.getItem('pending_save_slug')
+      if (pendingSlug && pathname?.includes(pendingSlug)) {
+        sessionStorage.removeItem('pending_save_slug')
+        const { data: existing } = await supabase
+          .from('saved_jobs')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('job_id', jobId)
+          .maybeSingle()
+        if (!existing) {
+          await supabase.from('saved_jobs').insert({ user_id: user.id, job_id: jobId })
+          setSaved(true)
+        }
+      }
+    }
+
+    handlePendingSave()
+  }, [jobId, pathname])
+
   async function handleToggle() {
     if (!userId) {
-      router.push('/sign-in')
+      // Save slug to sessionStorage, redirect to sign-up with return URL
+      const slug = pathname?.split('/jobs/')[1] || ''
+      if (slug) {
+        sessionStorage.setItem('pending_save_slug', slug)
+      }
+      router.push(`/sign-up?redirect=${encodeURIComponent(pathname || '/jobs')}`)
       return
     }
 
@@ -64,17 +96,6 @@ export function SaveJobButton({ jobId }: { jobId: string }) {
       <button
         disabled
         className="w-full py-3 px-6 rounded-lg border border-rp-border text-rp-text-3 text-sm font-medium"
-      >
-        Save role
-      </button>
-    )
-  }
-
-  if (!userId) {
-    return (
-      <button
-        onClick={() => router.push('/sign-in')}
-        className="w-full py-3 px-6 rounded-lg border border-rp-border text-rp-text-2 text-sm font-medium hover:border-rp-text-3 transition-colors"
       >
         Save role
       </button>

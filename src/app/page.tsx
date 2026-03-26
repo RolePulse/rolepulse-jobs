@@ -56,7 +56,7 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-rp-white">
       {/* Hero — compact, dark bg */}
-      <div className="bg-rp-black px-8 pt-16 pb-12">
+      <div className="bg-rp-black px-8 pt-16 pb-10">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-[56px] font-semibold text-white leading-tight tracking-tight">
             GTM careers
@@ -69,11 +69,11 @@ export default async function HomePage() {
               href="/jobs"
               className="inline-flex items-center px-7 py-3.5 rounded-lg bg-rp-accent text-white font-semibold text-base hover:bg-rp-accent-dk transition-colors"
             >
-              Browse roles →
+              Browse open roles →
             </Link>
           </div>
-          {/* Stats bar — inside hero */}
-          <div className="mt-6 flex gap-6 flex-wrap text-zinc-500 text-sm">
+          {/* Stats bar */}
+          <div className="mt-6 flex gap-4 text-zinc-500 text-sm">
             <span>{stats.roleCount.toLocaleString()} open roles</span>
             <span>·</span>
             <span>{stats.companyCount.toLocaleString()} companies</span>

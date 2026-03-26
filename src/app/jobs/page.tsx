@@ -6,6 +6,8 @@ import { createClient } from '@supabase/supabase-js'
 import { JobRow } from '@/components/JobRow'
 import { JobRowSkeleton } from '@/components/JobRowSkeleton'
 
+const PAGE_SIZE = 50
+
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -20,11 +22,13 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
   const searchParams = useSearchParams()
   const q = searchParams.get('q') || ''
   const company = searchParams.get('company') || ''
+  const location = searchParams.get('location') || ''
 
   let href = role === 'all' ? '/jobs' : `/jobs?role=${role}`
   const extras: string[] = []
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
+  if (location) extras.push(`location=${encodeURIComponent(location)}`)
   if (extras.length) href += (href.includes('?') ? '&' : '?') + extras.join('&')
 
   return (
@@ -41,6 +45,42 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
   )
 }
 
+const LOCATION_FILTERS = [
+  { label: 'All locations', value: '' },
+  { label: 'Remote only', value: 'remote' },
+  { label: 'London', value: 'london' },
+  { label: 'New York', value: 'new-york' },
+  { label: 'San Francisco', value: 'san-francisco' },
+]
+
+function LocationPill({ loc, selected }: { loc: { label: string; value: string }; selected: boolean }) {
+  const searchParams = useSearchParams()
+  const q = searchParams.get('q') || ''
+  const role = searchParams.get('role') || ''
+  const company = searchParams.get('company') || ''
+
+  let href = '/jobs'
+  const extras: string[] = []
+  if (role) extras.push(`role=${encodeURIComponent(role)}`)
+  if (loc.value) extras.push(`location=${encodeURIComponent(loc.value)}`)
+  if (q) extras.push(`q=${encodeURIComponent(q)}`)
+  if (company) extras.push(`company=${encodeURIComponent(company)}`)
+  if (extras.length) href += '?' + extras.join('&')
+
+  return (
+    <a
+      href={href}
+      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+        selected
+          ? 'bg-zinc-700 text-white'
+          : 'bg-rp-bg text-rp-text-1 hover:bg-rp-border'
+      }`}
+    >
+      {loc.label}
+    </a>
+  )
+}
+
 function JobsList() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -52,7 +92,9 @@ function JobsList() {
 
   const selectedRole = searchParams.get('role')
   const selectedCompany = searchParams.get('company')
+  const selectedLocation = searchParams.get('location') || ''
   const q = searchParams.get('q') || ''
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
 
   // Keep search input in sync with URL
   useEffect(() => {
@@ -66,7 +108,9 @@ function JobsList() {
       const params = new URLSearchParams()
       if (selectedRole) params.set('role', selectedRole)
       if (selectedCompany) params.set('company', selectedCompany)
+      if (selectedLocation) params.set('location', selectedLocation)
       if (value) params.set('q', value)
+      // reset to page 1 on new search
       router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
     }, 300)
   }
@@ -77,27 +121,40 @@ function JobsList() {
     const params = new URLSearchParams()
     if (selectedRole) params.set('role', selectedRole)
     if (selectedCompany) params.set('company', selectedCompany)
+    if (selectedLocation) params.set('location', selectedLocation)
     router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
+  }
+
+  function goToPage(newPage: number) {
+    const params = new URLSearchParams()
+    if (selectedRole) params.set('role', selectedRole)
+    if (selectedCompany) params.set('company', selectedCompany)
+    if (selectedLocation) params.set('location', selectedLocation)
+    if (q) params.set('q', q)
+    if (newPage > 1) params.set('page', String(newPage))
+    router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
       const supabase = getSupabase()
+      const from = (page - 1) * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
 
       let query = supabase
         .from('jobs')
         .select('id, title, slug, location, remote, role_type, posted_at, companies(name, logo_url)', { count: 'exact' })
         .eq('status', 'active')
         .order('posted_at', { ascending: false })
-        .limit(100)
+        .range(from, to)
 
       if (selectedRole && selectedRole !== 'all') {
         query = query.eq('role_type', selectedRole)
       }
 
       if (selectedCompany) {
-        // Join via company slug
         const supabaseRaw = getSupabase()
         const { data: companyData } = await supabaseRaw
           .from('companies')
@@ -106,6 +163,18 @@ function JobsList() {
           .single()
         if (companyData) {
           query = query.eq('company_id', companyData.id)
+        }
+      }
+
+      if (selectedLocation) {
+        if (selectedLocation === 'remote') {
+          query = query.eq('remote', true)
+        } else if (selectedLocation === 'new-york') {
+          query = query.ilike('location', '%new york%')
+        } else if (selectedLocation === 'san-francisco') {
+          query = query.or('location.ilike.%san francisco%,location.ilike.%sf%')
+        } else {
+          query = query.ilike('location', `%${selectedLocation}%`)
         }
       }
 
@@ -124,7 +193,9 @@ function JobsList() {
     }
 
     fetchData()
-  }, [selectedRole, selectedCompany, q])
+  }, [selectedRole, selectedCompany, selectedLocation, q, page])
+
+  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   return (
     <>
@@ -159,13 +230,24 @@ function JobsList() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Role filters */}
       <div className="border-b border-rp-border px-8 py-4">
         <div className="max-w-4xl mx-auto overflow-x-auto">
           <div className="flex gap-2 flex-nowrap pb-1">
             <FilterPill role="all" selected={!selectedRole || selectedRole === 'all'} />
             {ROLE_TYPES.map((role) => (
               <FilterPill key={role} role={role} selected={selectedRole === role} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Location filters */}
+      <div className="border-b border-rp-border px-8 py-3">
+        <div className="max-w-4xl mx-auto overflow-x-auto">
+          <div className="flex gap-2 flex-nowrap pb-1">
+            {LOCATION_FILTERS.map((loc) => (
+              <LocationPill key={loc.value} loc={loc} selected={selectedLocation === loc.value} />
             ))}
           </div>
         </div>
@@ -193,14 +275,43 @@ function JobsList() {
           [...Array(8)].map((_, i) => <JobRowSkeleton key={i} />)
         ) : jobs.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-rp-text-2">
-              {q ? `No roles matching "${q}". Try a different search.` : 'No roles found. Check back tomorrow.'}
+            <p className="text-rp-text-2 text-lg mb-2">
+              {selectedRole && selectedRole !== 'all'
+                ? `No ${selectedRole} roles found right now.`
+                : q
+                ? `No roles matching "${q}".`
+                : 'No roles found right now.'}
             </p>
+            <p className="text-sm text-rp-text-3 mb-6">We update daily — check back tomorrow.</p>
+            <a href="/jobs" className="text-sm text-rp-accent hover:underline">← Clear filters</a>
           </div>
         ) : (
           jobs.map((job: any) => (
             <JobRow key={job.id} job={job} companyLogo={job.company_logo} />
           ))
+        )}
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <div className="flex items-center justify-between mt-10 pt-6 border-t border-rp-border">
+            <button
+              onClick={() => goToPage(page - 1)}
+              disabled={page <= 1}
+              className="px-5 py-2.5 rounded-lg border border-rp-border text-sm font-medium text-rp-text-1 hover:bg-rp-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ← Prev
+            </button>
+            <span className="text-sm text-rp-text-3">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => goToPage(page + 1)}
+              disabled={page >= totalPages}
+              className="px-5 py-2.5 rounded-lg border border-rp-border text-sm font-medium text-rp-text-1 hover:bg-rp-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Next →
+            </button>
+          </div>
         )}
       </div>
     </>

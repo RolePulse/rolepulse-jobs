@@ -1,16 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { Suspense } from 'react'
 
-export default function SignUpPage() {
+function SignUpForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get('redirect') || '/jobs'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -26,7 +29,8 @@ export default function SignUpPage() {
       return
     }
 
-    router.push('/jobs')
+    // Redirect back to original page (SaveJobButton will auto-save via sessionStorage)
+    router.push(redirect)
   }
 
   return (
@@ -84,11 +88,19 @@ export default function SignUpPage() {
 
         <p className="mt-6 text-sm text-rp-text-3 text-center">
           Already have an account?{' '}
-          <Link href="/sign-in" className="text-rp-accent hover:underline">
+          <Link href={`/sign-in?redirect=${encodeURIComponent(redirect)}`} className="text-rp-accent hover:underline">
             Sign in
           </Link>
         </p>
       </div>
     </div>
+  )
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-rp-white" />}>
+      <SignUpForm />
+    </Suspense>
   )
 }
