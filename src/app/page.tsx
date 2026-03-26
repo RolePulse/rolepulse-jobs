@@ -1,6 +1,9 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@supabase/supabase-js'
 import type { Metadata } from 'next'
+
+export const revalidate = 3600
 
 export const metadata: Metadata = {
   title: 'RolePulse — GTM careers',
@@ -109,12 +112,12 @@ export default async function HomePage() {
               className="flex items-center gap-4 p-4 rounded-xl border border-rp-border hover:border-rp-accent hover:bg-orange-50 transition-colors group"
             >
               {job.company_logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={job.company_logo}
                   alt={job.company_name}
                   width={36}
                   height={36}
+                  sizes="36px"
                   className="rounded flex-shrink-0 object-contain"
                 />
               ) : (

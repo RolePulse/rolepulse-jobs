@@ -1,6 +1,9 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@supabase/supabase-js'
 import type { Metadata } from 'next'
+
+export const revalidate = 3600
 
 export const metadata: Metadata = {
   title: 'Companies hiring GTM talent | RolePulse',
@@ -99,9 +102,13 @@ export default async function CompaniesPage() {
               >
                 {company.logo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={company.logo_url}
                     alt={company.name}
+                    width={48}
+                    height={48}
+                    sizes="48px"
+                    loading="lazy"
                     className="w-12 h-12 object-contain rounded"
                   />
                 ) : (
