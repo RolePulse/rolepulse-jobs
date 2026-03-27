@@ -11,8 +11,8 @@ function truncateLocation(loc: string | null | undefined): string {
 
 export function JobRow({ job, companyLogo }: { job: any; companyLogo?: string }) {
   return (
-    <Link href={`/jobs/${job.slug}`}>
-      <div className="flex items-center justify-between px-0 py-4 border-b border-rp-border hover:bg-rp-bg transition-colors duration-150 cursor-pointer min-h-[72px]">
+    <Link href={`/jobs/${job.slug}`} className="block cursor-pointer">
+      <div className="flex items-center justify-between px-0 py-4 border-b border-rp-border hover:bg-[#F9FAFB] transition-colors duration-[120ms] min-h-[72px]">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <CompanyLogo
             src={companyLogo}

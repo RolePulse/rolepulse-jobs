@@ -37,7 +37,7 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
       className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
         selected
           ? 'bg-rp-accent text-white'
-          : 'bg-rp-bg text-rp-text-1 hover:bg-rp-border'
+          : 'border border-[#E5E7EB] text-slate-600 hover:border-slate-400'
       }`}
     >
       {role === 'all' ? 'All roles' : role}
@@ -72,8 +72,8 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
       href={href}
       className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
         selected
-          ? 'bg-zinc-700 text-white'
-          : 'bg-rp-bg text-rp-text-1 hover:bg-rp-border'
+          ? 'bg-rp-accent text-white'
+          : 'border border-[#E5E7EB] text-slate-600 hover:border-slate-400'
       }`}
     >
       {loc.label}
@@ -81,10 +81,46 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
   )
 }
 
+interface Job {
+  id: string
+  title: string
+  slug: string
+  location: string | null
+  remote: boolean
+  role_type: string | null
+  posted_at: string
+  company_name: string
+  company_logo: string | null
+}
+
+function diversify(jobs: Job[]): Job[] {
+  const result: Job[] = []
+  const pending: Job[] = [...jobs]
+  let lastCompany = ''
+  let consecutiveCount = 0
+
+  while (pending.length > 0) {
+    const idx = pending.findIndex((j) => {
+      if (consecutiveCount < 3) return true
+      return j.company_name !== lastCompany
+    })
+    if (idx === -1) { result.push(...pending); break }
+    const [job] = pending.splice(idx, 1)
+    if (job.company_name === lastCompany) {
+      consecutiveCount++
+    } else {
+      consecutiveCount = 1
+      lastCompany = job.company_name
+    }
+    result.push(job)
+  }
+  return result
+}
+
 function JobsList() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const [jobs, setJobs] = useState<any[]>([])
+  const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   const [searchInput, setSearchInput] = useState(searchParams.get('q') || '')
@@ -96,7 +132,6 @@ function JobsList() {
   const q = searchParams.get('q') || ''
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
 
-  // Keep search input in sync with URL
   useEffect(() => {
     setSearchInput(q)
   }, [q])
@@ -110,7 +145,6 @@ function JobsList() {
       if (selectedCompany) params.set('company', selectedCompany)
       if (selectedLocation) params.set('location', selectedLocation)
       if (value) params.set('q', value)
-      // reset to page 1 on new search
       router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
     }, 300)
   }
@@ -162,7 +196,7 @@ function JobsList() {
           .eq('slug', selectedCompany)
           .single()
         if (companyData) {
-          query = query.eq('company_id', companyData.id)
+          query = query.eq('company_id', (companyData as { id: string }).id)
         }
       }
 
@@ -184,11 +218,23 @@ function JobsList() {
 
       const { data: jobData, count } = await query
       setTotal(count || 0)
-      setJobs((jobData || []).map((j: any) => ({
+
+      const rawJobs: Job[] = (jobData || []).map((j: any) => ({
         ...j,
         company_name: j.companies?.name || '',
         company_logo: j.companies?.logo_url || null,
-      })))
+      }))
+
+      // Deduplicate by slug
+      const seen = new Set<string>()
+      const dedupedJobs = rawJobs.filter(job => {
+        if (seen.has(job.slug)) return false
+        seen.add(job.slug)
+        return true
+      })
+
+      // Company diversity — max 3 consecutive same company
+      setJobs(diversify(dedupedJobs))
       setLoading(false)
     }
 
@@ -196,26 +242,56 @@ function JobsList() {
   }, [selectedRole, selectedCompany, selectedLocation, q, page])
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
+  const totalCount = total
 
   return (
     <>
+      {/* Dark hero section */}
+      <div
+        className="relative"
+        style={{
+          backgroundColor: '#111827',
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}
+      >
+        <div className="max-w-4xl mx-auto px-8 py-16 text-center">
+          <h1
+            className="text-white"
+            style={{ fontSize: '64px', fontWeight: 800, lineHeight: 1.1 }}
+          >
+            GTM careers
+          </h1>
+          <p className="text-slate-400 mt-4" style={{ fontSize: '16px' }}>
+            Roles from the best GTM SaaS companies. Updated daily.
+          </p>
+          <p className="text-slate-400 text-sm mt-3">
+            Free to browse · {totalCount > 0 ? totalCount.toLocaleString() : '700+'} open roles · Updated daily
+          </p>
+        </div>
+        {/* Fade into white */}
+        <div className="bg-gradient-to-b from-[#111827] to-white h-8" />
+      </div>
+
       {/* Search bar */}
       <div className="border-b border-rp-border px-8 py-4">
         <div className="max-w-4xl mx-auto">
           <div className="relative">
             <svg
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-rp-text-3"
-              width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
               value={searchInput}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search roles, companies, skills..."
-              className="w-full pl-11 pr-10 py-3 rounded-lg border border-rp-border bg-white text-rp-text-1 text-sm focus:outline-none focus:border-rp-accent"
+              className="w-full pl-10 pr-10 rounded-full border border-rp-border bg-white text-rp-text-1 text-sm focus:outline-none focus:border-rp-accent"
+              style={{ height: '52px' }}
             />
             {searchInput && (
               <button
@@ -227,29 +303,32 @@ function JobsList() {
               </button>
             )}
           </div>
-          <p className="text-xs text-rp-text-3 mt-2">Free to browse · {total > 0 ? total.toLocaleString() : '700+'} open roles · Updated daily</p>
         </div>
       </div>
 
       {/* Role filters */}
       <div className="border-b border-rp-border px-8 py-4">
-        <div className="max-w-4xl mx-auto overflow-x-auto">
-          <div className="flex gap-2 flex-nowrap pb-1">
-            <FilterPill role="all" selected={!selectedRole || selectedRole === 'all'} />
-            {ROLE_TYPES.map((role) => (
-              <FilterPill key={role} role={role} selected={selectedRole === role} />
-            ))}
+        <div className="max-w-4xl mx-auto">
+          <div className="relative after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none md:after:hidden">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:flex-wrap">
+              <FilterPill role="all" selected={!selectedRole || selectedRole === 'all'} />
+              {ROLE_TYPES.map((role) => (
+                <FilterPill key={role} role={role} selected={selectedRole === role} />
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Location filters */}
       <div className="border-b border-rp-border px-8 py-3">
-        <div className="max-w-4xl mx-auto overflow-x-auto">
-          <div className="flex gap-2 flex-nowrap pb-1">
-            {LOCATION_FILTERS.map((loc) => (
-              <LocationPill key={loc.value} loc={loc} selected={selectedLocation === loc.value} />
-            ))}
+        <div className="max-w-4xl mx-auto">
+          <div className="relative after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none md:after:hidden">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:flex-wrap">
+              {LOCATION_FILTERS.map((loc) => (
+                <LocationPill key={loc.value} loc={loc} selected={selectedLocation === loc.value} />
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -275,20 +354,27 @@ function JobsList() {
         {loading ? (
           [...Array(8)].map((_, i) => <JobRowSkeleton key={i} />)
         ) : jobs.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-rp-text-2 text-lg mb-2">
-              {selectedRole && selectedRole !== 'all'
-                ? `No ${selectedRole} roles found right now.`
-                : q
-                ? `No roles matching "${q}".`
-                : 'No roles found right now.'}
-            </p>
-            <p className="text-sm text-rp-text-3 mb-6">We update daily — check back tomorrow.</p>
-            <a href="/jobs" className="text-sm text-rp-accent hover:underline">← Clear filters</a>
+          <div className="text-center py-20">
+            <svg
+              className="mx-auto h-12 w-12 text-slate-300 mb-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <h3 className="text-lg font-semibold text-slate-700 mb-2">No roles found</h3>
+            <p className="text-slate-500 mb-6">Try a different search term or adjust your filters.</p>
+            <a
+              href="/jobs"
+              className="inline-flex items-center px-4 py-2 rounded-full border border-slate-300 text-sm text-slate-600 hover:border-slate-400 transition-colors"
+            >
+              ← Clear filters
+            </a>
           </div>
         ) : (
-          jobs.map((job: any) => (
-            <JobRow key={job.id} job={job} companyLogo={job.company_logo} />
+          jobs.map((job: Job) => (
+            <JobRow key={job.id} job={job} companyLogo={job.company_logo ?? undefined} />
           ))
         )}
 
@@ -322,18 +408,6 @@ function JobsList() {
 export default function JobsPage() {
   return (
     <div className="min-h-screen bg-rp-white">
-      {/* Header */}
-      <div className="border-b border-rp-border px-8 py-16">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-7xl font-semibold text-rp-text-1 leading-tight tracking-tight">
-            <span className="text-rp-accent">GTM</span> careers
-          </h1>
-          <p className="text-lg text-rp-text-2 mt-3">
-            Roles from the best GTM SaaS companies. Updated daily.
-          </p>
-        </div>
-      </div>
-
       <Suspense fallback={
         <div className="max-w-4xl mx-auto px-8 py-8">
           {[...Array(8)].map((_, i) => <JobRowSkeleton key={i} />)}
