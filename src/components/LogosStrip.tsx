@@ -1,7 +1,6 @@
 'use client'
 
-import Image from 'next/image'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const FEATURED_COMPANIES = [
   { name: 'Gong', domain: 'gong.io' },
@@ -17,12 +16,34 @@ const FEATURED_COMPANIES = [
 
 export function LogosStrip() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsLoaded(true)
+          observer.unobserve(entry.target)
+        }
+      },
+      { threshold: 0.2 }
+    )
+
+    const element = document.getElementById('logos-strip')
+    if (element) observer.observe(element)
+
+    return () => observer.disconnect()
+  }, [])
 
   return (
-    <div className="bg-white px-6 md:px-8 py-16 md:py-20">
+    <div className="bg-white px-6 md:px-8 py-16 md:py-20" id="logos-strip">
       <div className="max-w-6xl mx-auto">
-        {/* Label */}
-        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-10 md:mb-12">
+        {/* Label with fade-in */}
+        <p
+          className={`text-xs font-bold uppercase tracking-widest text-slate-400 mb-10 md:mb-12 transition-all duration-500 ${
+            isLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
           Roles from companies including
         </p>
 
@@ -34,14 +55,21 @@ export function LogosStrip() {
               href={`https://${company.domain}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center h-12 md:h-14 group relative"
+              className={`flex items-center justify-center h-12 md:h-14 group relative transition-all duration-500 ${
+                isLoaded
+                  ? 'opacity-100 scale-100 translate-y-0'
+                  : 'opacity-0 scale-95 translate-y-2'
+              }`}
+              style={{
+                transitionDelay: isLoaded ? `${idx * 50}ms` : '0ms',
+              }}
               onMouseEnter={() => setHoveredIndex(idx)}
               onMouseLeave={() => setHoveredIndex(null)}
             >
               <img
                 src={`https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${company.domain}&size=32`}
                 alt={company.name}
-                className={`h-8 w-8 transition-all duration-150 ${
+                className={`h-8 w-8 transition-all duration-150 will-change-transform ${
                   hoveredIndex === idx
                     ? 'grayscale-0 opacity-100 scale-108 drop-shadow-lg'
                     : 'grayscale opacity-60 scale-100'
@@ -51,7 +79,7 @@ export function LogosStrip() {
               {/* Lift effect on hover */}
               <style jsx>{`
                 a:hover {
-                  transform: translateY(-2px);
+                  transform: translateY(-3px);
                 }
               `}</style>
             </a>

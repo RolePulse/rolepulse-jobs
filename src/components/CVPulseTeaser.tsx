@@ -33,9 +33,9 @@ export function CVPulseTeaser() {
       }}
     >
       <div className="max-w-2xl mx-auto">
-        {/* Badge */}
+        {/* Badge with pulse animation */}
         <div
-          className={`mb-8 transition-all duration-500 ${
+          className={`mb-8 transition-all duration-500 ease-out ${
             isVisible
               ? 'opacity-100 scale-100'
               : 'opacity-0 scale-95'
@@ -50,35 +50,43 @@ export function CVPulseTeaser() {
           </span>
         </div>
 
-        {/* Headline */}
+        {/* Headline with fade-in and slide-up */}
         <div
-          className={`transition-all duration-700 ${
+          className={`transition-all duration-700 delay-100 ease-out ${
             isVisible
               ? 'opacity-100 translate-y-0'
-              : 'opacity-0 translate-y-4'
+              : 'opacity-0 translate-y-8'
           }`}
         >
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
             See exactly how your CV matches any role.
           </h2>
 
-          {/* Subline */}
-          <p className="text-slate-400 text-lg leading-relaxed mb-10">
-            CV Pulse will score your CV against any job description. Missing keywords,
-            suggested fixes, and a match score in seconds. Integrated directly into every
-            job listing on RolePulse.
-          </p>
-
-          {/* CTA */}
-          <Link
-            href="https://www.cvpulse.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-rp-accent font-semibold text-lg hover:underline hover:text-rp-accent-dk transition-all inline-flex items-center gap-2 group"
+          {/* Subline with fade-in */}
+          <div
+            className={`transition-all duration-700 delay-200 ease-out ${
+              isVisible
+                ? 'opacity-100 translate-y-0'
+                : 'opacity-0 translate-y-4'
+            }`}
           >
-            Learn more about CV Pulse
-            <span className="group-hover:translate-x-1 transition-transform duration-150">→</span>
-          </Link>
+            <p className="text-slate-400 text-lg leading-relaxed mb-10">
+              CV Pulse will score your CV against any job description. Missing keywords,
+              suggested fixes, and a match score in seconds. Integrated directly into every
+              job listing on RolePulse.
+            </p>
+
+            {/* CTA with smooth animations */}
+            <Link
+              href="https://www.cvpulse.io"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-rp-accent font-semibold text-lg transition-all duration-150 inline-flex items-center gap-2 group hover:gap-3"
+            >
+              Learn more about CV Pulse
+              <span className="group-hover:translate-x-1 transition-transform duration-150 ease-out">→</span>
+            </Link>
+          </div>
         </div>
       </div>
 

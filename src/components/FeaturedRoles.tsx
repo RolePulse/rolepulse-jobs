@@ -24,11 +24,24 @@ export function FeaturedRoles({ jobs }: FeaturedRolesProps) {
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
-    setIsLoaded(true)
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsLoaded(true)
+          observer.unobserve(entry.target)
+        }
+      },
+      { threshold: 0.2 }
+    )
+
+    const element = document.getElementById('featured-roles')
+    if (element) observer.observe(element)
+
+    return () => observer.disconnect()
   }, [])
 
   return (
-    <div className="bg-slate-50 px-6 md:px-8 py-16 md:py-24">
+    <div className="bg-slate-50 px-6 md:px-8 py-16 md:py-24" id="featured-roles">
       <div className="max-w-6xl mx-auto">
         {/* Label */}
         <p className="text-xs font-bold uppercase tracking-widest text-rp-accent mb-8">
@@ -48,9 +61,9 @@ export function FeaturedRoles({ jobs }: FeaturedRolesProps) {
               style={{
                 transitionDelay: isLoaded ? `${idx * 100}ms` : '0ms',
               }}
-              className={`group flex flex-col gap-4 p-5 bg-white border border-rp-border rounded-xl hover:shadow-lg hover:-translate-y-1 transition-all duration-200 ${
-                isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
-              }`}
+              className={`group flex flex-col gap-4 p-5 bg-white border border-rp-border rounded-xl transition-all duration-200 will-change-transform ${
+                isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+              } hover:shadow-lg hover:-translate-y-1 hover:border-rp-accent/30`}
             >
               {/* Header with logo and company */}
               <div className="flex items-start justify-between">
