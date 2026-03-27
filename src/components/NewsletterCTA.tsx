@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 
 export function NewsletterCTA() {
-  const [isLoaded, setIsLoaded] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(true)
 
   useEffect(() => {
     const observer = new IntersectionObserver(
