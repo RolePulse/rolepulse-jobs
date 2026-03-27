@@ -31,20 +31,19 @@ export function NewsletterCTA() {
     >
       <div className="max-w-2xl mx-auto text-center">
         <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-          The weekly GTM hiring brief.
+          Roles on Tuesdays. Tips on Thursdays.
         </h2>
         <p className="text-white/85 text-lg mb-8">
-          What&apos;s hiring, who&apos;s growing, and which companies just raised. Every Thursday.
+          Curated GTM roles and real candidate advice, straight to your inbox. Join 1,600+ GTM professionals.
         </p>
         <a
-          href="https://rolepulse.substack.com"
+          href="https://rolepulse.substack.com/subscribe"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 bg-white text-rp-accent font-semibold px-8 py-3 rounded-full hover:bg-white/90 transition-colors text-base"
         >
           Subscribe on Substack →
         </a>
-        <p className="text-white/60 text-sm mt-4">Join 1,600+ GTM professionals · Free</p>
       </div>
     </div>
   )
