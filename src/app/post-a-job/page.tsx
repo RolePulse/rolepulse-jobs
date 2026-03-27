@@ -22,6 +22,7 @@ const TIERS = [
     cta: 'Post Standard',
     highlight: false,
     newsletter: false,
+    featured: false,
   },
   {
     name: 'Featured',
@@ -38,6 +39,7 @@ const TIERS = [
     cta: 'Post Featured',
     highlight: false,
     newsletter: false,
+    featured: true,
   },
   {
     name: 'Newsletter',
@@ -54,13 +56,35 @@ const TIERS = [
     cta: 'Post + Newsletter',
     highlight: false,
     newsletter: true,
+    featured: false,
   },
 ]
 
 const BUNDLES = [
   { name: '3-Listing Bundle', price: '$599', priceId: 'price_1TEuR6RsDnlecpji4dYGJk9l', description: '3 Standard listings. Best for teams hiring multiple roles.' },
   { name: '5-Listing Bundle', price: '$899', priceId: 'price_1TEuR6RsDnlecpjiVLJRbW5c', description: '5 Standard listings. Biggest saving per role.' },
-  { name: 'Founding Rate', price: '$124', priceId: 'price_1TEuRNRsDnlecpjiIB2M7lrJ', description: 'Early access pricing. Limited availability.' },
+]
+
+{/* TODO: Replace placeholder quotes with real testimonials from James */}
+const TESTIMONIALS = [
+  {
+    quote: "We hired our first AE through RolePulse in under two weeks. The quality of applicants was genuinely impressive.",
+    name: "[Name]",
+    title: "Head of Sales",
+    company: "[Company]",
+  },
+  {
+    quote: "The newsletter slot was worth every penny. We had 40+ applications in 48 hours.",
+    name: "[Name]",
+    title: "VP Talent",
+    company: "[Company]",
+  },
+  {
+    quote: "Finally a job board that actually understands GTM hiring. Not noise — real candidates.",
+    name: "[Name]",
+    title: "CRO",
+    company: "[Company]",
+  },
 ]
 
 const FAQ = [
@@ -76,78 +100,103 @@ const FAQ = [
     q: 'Can I edit my listing after posting?',
     a: 'Yes, from your employer dashboard.',
   },
-  {
-    q: "What's the Founding Rate?",
-    a: '50% off the Standard listing price for the first 10 employers. One-time offer.',
-  },
 ]
 
 export default function PostAJobPage() {
   return (
     <div className="min-h-screen bg-rp-white">
       {/* Hero */}
-      <div className="bg-rp-black py-24 px-8 text-center">
-        <h1 className="text-5xl font-semibold text-white mb-4">Hire GTM talent</h1>
-        <p className="text-lg text-zinc-400 max-w-xl mx-auto">
-          Reach 1,600+ GTM professionals actively hiring right now. AE, SDR, CSM, RevOps and more.
+      <div
+        className="relative py-28 px-8 text-center overflow-hidden"
+        style={{
+          backgroundColor: '#111827',
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}
+      >
+        <h1
+          className="text-white mx-auto max-w-3xl leading-tight mb-6"
+          style={{ fontSize: 'clamp(64px, 6vw, 80px)', fontWeight: 800 }}
+        >
+          Hire GTM talent that actually performs.
+        </h1>
+        <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-8">
+          Reach 1,600+ GTM professionals actively looking for their next role. AE, SDR, CSM, RevOps and more.
         </p>
+        <p className="text-white text-sm font-medium tracking-wide">
+          1,600+ job seekers · 36% newsletter open rate · Roles live within 24 hours
+        </p>
+        {/* Bottom fade into pricing section */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none"
+          style={{ background: 'linear-gradient(to bottom, transparent, #f9fafb)' }}
+        />
       </div>
 
       {/* Pricing cards */}
       <div className="max-w-5xl mx-auto px-8 py-16">
-        <h2 className="text-2xl font-semibold text-rp-text-1 mb-10 text-center">Choose your listing</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <h2 className="text-2xl font-semibold text-rp-text-1 mb-12 text-center">Choose your listing</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
           {TIERS.map((tier) => (
-            <div
-              key={tier.name}
-              className={`rounded-2xl border p-8 flex flex-col relative ${
-                tier.newsletter
-                  ? 'bg-white'
-                  : 'border-rp-border bg-white'
-              }`}
-              style={tier.newsletter ? { border: '2px solid #F97316' } : undefined}
-            >
-              {/* Badge */}
-              {tier.newsletter && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-rp-accent text-white text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
-                  Most popular
-                </span>
+            <div key={tier.name} className="relative flex flex-col">
+              {/* Most Popular badge — ABOVE the card */}
+              {tier.featured && (
+                <div className="flex justify-center mb-2">
+                  <span className="bg-rp-accent text-white text-xs font-semibold px-4 py-1 rounded-full whitespace-nowrap">
+                    Most Popular
+                  </span>
+                </div>
               )}
 
-              <div className="mb-4">
-                <p className="text-lg font-semibold text-rp-text-1">{tier.name}</p>
-                <p className="text-4xl font-semibold text-rp-text-1 mt-1">
-                  {tier.price}
-                  <span className="text-base font-normal text-rp-text-3 ml-1">/ {tier.period}</span>
-                </p>
-              </div>
-              <p className="text-sm text-rp-text-2 mb-6">{tier.description}</p>
-              <ul className="space-y-2 mb-4 flex-1">
-                {tier.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-rp-text-2">
-                    <span className="text-rp-accent font-bold">✓</span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-
-              {/* Social proof for newsletter tier */}
-              {tier.newsletter && (
-                <p className="text-xs text-rp-text-3 mb-6 mt-2 italic">
-                  1,600 GTM subscribers · 36% open rate · Direct inbox placement
-                </p>
-              )}
-
-              <Link
-                href={`/employers/new?tier=${tier.name.toLowerCase()}&price_id=${tier.priceId}`}
-                className={`block text-center py-3 px-6 rounded-lg font-medium transition-colors mt-auto ${
+              <div
+                className={`rounded-2xl p-8 flex flex-col flex-1 ${
                   tier.newsletter
-                    ? 'bg-rp-accent text-white hover:bg-rp-accent-dk'
-                    : 'bg-rp-black text-white hover:bg-zinc-800'
+                    ? 'bg-[#111827] text-white'
+                    : tier.featured
+                    ? 'bg-[#FAFAFA] border border-[#D1D5DB] shadow-sm'
+                    : 'bg-white border border-[#E5E7EB]'
                 }`}
               >
-                {tier.cta} →
-              </Link>
+                <div className="mb-4">
+                  <p className={`text-lg font-semibold ${tier.newsletter ? 'text-white' : 'text-rp-text-1'}`}>
+                    {tier.name}
+                  </p>
+                  <p className={`text-4xl font-semibold mt-1 ${tier.newsletter ? 'text-rp-accent' : 'text-rp-text-1'}`}>
+                    {tier.price}
+                    <span className={`text-base font-normal ml-1 ${tier.newsletter ? 'text-slate-300' : 'text-rp-text-3'}`}>
+                      / {tier.period}
+                    </span>
+                  </p>
+                </div>
+                <p className={`text-sm mb-6 ${tier.newsletter ? 'text-slate-300' : 'text-rp-text-2'}`}>
+                  {tier.description}
+                </p>
+                <ul className="space-y-2 mb-4 flex-1">
+                  {tier.features.map((f) => (
+                    <li key={f} className={`flex items-center gap-2 text-sm ${tier.newsletter ? 'text-slate-300' : 'text-rp-text-2'}`}>
+                      <span className="text-rp-accent font-bold">✓</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                {tier.newsletter && (
+                  <p className="text-xs text-slate-400 mb-6 mt-2 italic">
+                    1,600 GTM subscribers · 36% open rate · Direct inbox placement
+                  </p>
+                )}
+
+                <Link
+                  href={`/employers/new?tier=${tier.name.toLowerCase()}&price_id=${tier.priceId}`}
+                  className={`block text-center py-3 px-6 rounded-full font-medium transition-colors mt-auto ${
+                    tier.newsletter
+                      ? 'bg-rp-accent text-white hover:bg-rp-accent-dk'
+                      : 'bg-rp-black text-white hover:bg-zinc-800'
+                  }`}
+                >
+                  {tier.cta} →
+                </Link>
+              </div>
             </div>
           ))}
         </div>
@@ -155,7 +204,7 @@ export default function PostAJobPage() {
         {/* Bundles */}
         <div className="mt-12">
           <h2 className="text-xl font-semibold text-rp-text-1 mb-6 text-center">Bulk listings</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
             {BUNDLES.map((b) => (
               <div key={b.name} className="rounded-xl border border-rp-border bg-white p-6 flex flex-col gap-3">
                 <div>
@@ -165,10 +214,45 @@ export default function PostAJobPage() {
                 <p className="text-sm text-rp-text-2 flex-1">{b.description}</p>
                 <Link
                   href={`/employers/new?tier=${b.name.toLowerCase().replace(/ /g, '-')}&price_id=${b.priceId}`}
-                  className="text-center py-2 px-4 rounded-lg border border-rp-border text-sm font-medium text-rp-text-1 hover:bg-rp-bg transition-colors"
+                  className="text-center py-2 px-4 rounded-full border border-rp-border text-sm font-medium text-rp-text-1 hover:bg-rp-bg transition-colors"
                 >
                   Get started →
                 </Link>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm text-slate-500 mt-4 text-center">
+            Need more than 5 listings?{' '}
+            <a href="mailto:hello@rolepulse.com" className="text-rp-accent hover:underline">
+              Email hello@rolepulse.com
+            </a>{' '}
+            for a custom package.
+          </p>
+        </div>
+
+        {/* Reassurance line — above testimonials/FAQ */}
+        <div className="text-center mt-10">
+          <p className="text-sm text-rp-text-3">
+            Goes live within 24 hours · Secure checkout via Stripe · Questions?{' '}
+            <a href="mailto:hello@rolepulse.com" className="underline">Email hello@rolepulse.com</a>
+          </p>
+        </div>
+
+        {/* Testimonials */}
+        <div className="mt-16">
+          <h2 className="text-2xl font-semibold text-rp-text-1 mb-8 text-center">What hiring managers say</h2>
+          {/* TODO: Replace placeholder quotes with real testimonials from James */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {TESTIMONIALS.map((t) => (
+              <div
+                key={t.name + t.title}
+                className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-2xl p-6 flex flex-col gap-4"
+              >
+                <p className="text-base italic text-rp-text-2 flex-1">&ldquo;{t.quote}&rdquo;</p>
+                <div>
+                  <p className="font-bold text-rp-text-1 text-sm">{t.name}</p>
+                  <p className="text-xs text-rp-text-3">{t.title}, {t.company}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -185,15 +269,6 @@ export default function PostAJobPage() {
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Trust */}
-        <div className="text-center mt-12">
-          <p className="text-xs text-rp-text-3">Goes live immediately · Cancel anytime · Questions? Reply to your confirmation email</p>
-          <p className="text-sm text-rp-text-3 mt-2">
-            Secure checkout via Stripe.{' '}
-            <a href="mailto:hello@rolepulse.com" className="underline">hello@rolepulse.com</a>
-          </p>
         </div>
       </div>
     </div>
