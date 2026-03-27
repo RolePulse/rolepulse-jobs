@@ -239,13 +239,25 @@ export default function JobPage() {
           })))
         }
 
-        // Sanitize HTML
+        // Decode HTML entities + sanitize for rendering
+        // Greenhouse stores descriptions as entity-encoded HTML (&lt;p&gt; etc.)
+        // We need to decode first, then sanitize, then render via dangerouslySetInnerHTML
         if (jobData.description) {
-          const sanitized = DOMPurify.sanitize(jobData.description, {
-            FORBID_TAGS: ['script', 'iframe', 'style'],
-            FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus'],
-          })
-          setCleanHtml(sanitized)
+          try {
+            // Decode HTML entities using a temporary DOM element
+            const decoded = (() => {
+              const txt = document.createElement('textarea')
+              txt.innerHTML = jobData.description
+              return txt.value
+            })()
+            const sanitized = DOMPurify.sanitize(decoded, {
+              FORBID_TAGS: ['script', 'iframe', 'style'],
+              FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus'],
+            })
+            setCleanHtml(sanitized || decoded)
+          } catch {
+            setCleanHtml(jobData.description)
+          }
         }
       }
 

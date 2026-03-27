@@ -45,7 +45,9 @@ async function ingestGreenhouse(token: string, companyId: string): Promise<{ cou
           company_id: companyId,
           title: job.title,
           slug,
-          description: (typeof job.content === 'string' ? job.content : job.content?.body) || '',
+          // Greenhouse returns HTML-entity-encoded content (&lt;p&gt; etc.) — decode to real HTML
+          description: (typeof job.content === 'string' ? job.content : job.content?.body || '')
+            .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, '\u00a0') || '',
           apply_url: job.absolute_url,
           source: 'greenhouse',
           external_id: String(job.id),
