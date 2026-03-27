@@ -58,9 +58,19 @@ function CVScorer({ jobDescription, roleType }: { jobDescription: string; roleTy
   if (state === 'idle' || state === 'error') return (
     <div className="border-t border-[#E5E7EB] pt-4 mt-4">
       <p className="text-xs font-semibold text-slate-700 mb-3">🎯 How well does your CV match this role?</p>
-      <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-[#E5E7EB] rounded-xl cursor-pointer hover:border-rp-accent hover:bg-orange-50/30 transition-colors">
+      <label
+        className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-[#E5E7EB] rounded-xl cursor-pointer hover:border-rp-accent hover:bg-orange-50/30 transition-colors"
+        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-rp-accent', 'bg-orange-50/30') }}
+        onDragLeave={(e) => { e.currentTarget.classList.remove('border-rp-accent', 'bg-orange-50/30') }}
+        onDrop={(e) => {
+          e.preventDefault()
+          e.currentTarget.classList.remove('border-rp-accent', 'bg-orange-50/30')
+          const file = e.dataTransfer.files?.[0]
+          if (file) handleFile(file)
+        }}
+      >
         <span className="text-xs text-slate-500">Upload CV to score</span>
-        <span className="text-[10px] text-slate-400 mt-0.5">PDF or Word · Max 5MB</span>
+        <span className="text-[10px] text-slate-400 mt-0.5">PDF or Word · Drag & drop or click · Max 5MB</span>
         <input ref={fileRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
       </label>
       {state === 'error' && <p className="text-xs text-red-500 mt-2">{errorMsg}</p>}
@@ -472,6 +482,10 @@ export default function JobPage() {
           {!isEmployerListing && (
             <p className="text-xs text-rp-text-3 text-center">You&apos;ll be redirected to {company?.name}&apos;s careers page.</p>
           )}
+          {/* CV Scorer — mobile only (full width, below apply buttons) */}
+          <div className="lg:hidden">
+            <CVScorer jobDescription={cleanHtml || job.description || ''} roleType={job.role_type || 'AE'} />
+          </div>
         </div>
 
         {/* ── Two-column layout ── */}
