@@ -23,7 +23,7 @@ const VALUE_PROPS = [
 ]
 
 export function ValueProps() {
-  const [isVisible, setIsVisible] = useState(false)
+  const [isVisible, setIsVisible] = useState(true) // start visible; animate on scroll as enhancement
 
   useEffect(() => {
     const observer = new IntersectionObserver(

@@ -21,7 +21,7 @@ interface FeaturedRolesProps {
 }
 
 export function FeaturedRoles({ jobs }: FeaturedRolesProps) {
-  const [isLoaded, setIsLoaded] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(true) // start visible; animate on scroll as enhancement
 
   useEffect(() => {
     const observer = new IntersectionObserver(
