@@ -16,18 +16,117 @@ interface ScoreResult {
   flags: string[]
 }
 
-function CVScorer({ jobDescription, roleType }: { jobDescription: string; roleType: string }) {
-  const [state, setState] = useState<'idle' | 'uploading' | 'scoring' | 'done' | 'error'>('idle')
+interface SavedCvInfo {
+  filename: string | null
+  uploadedAt: string | null
+}
+
+function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string; roleType: string; jobId: string }) {
+  const [state, setState] = useState<'idle' | 'checking' | 'uploading' | 'scoring' | 'done' | 'error'>('checking')
   const [result, setResult] = useState<ScoreResult | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [savedCvInfo, setSavedCvInfo] = useState<SavedCvInfo | null>(null)
+  const [file, setFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const cvTextRef = useRef<string>('')
 
-  async function handleFile(file: File) {
-    if (file.size > 5 * 1024 * 1024) { setErrorMsg('File too large (max 5MB)'); setState('error'); return }
+  // On mount: check if user has a saved CV
+  useEffect(() => {
+    async function checkSavedCv() {
+      try {
+        const res = await fetch('/api/cv/saved')
+        if (!res.ok) { setState('idle'); return }
+        const { hasCv, cvText, cvFilename, cvUploadedAt } = await res.json()
+
+        if (hasCv && cvText) {
+          setIsLoggedIn(true)
+          setSavedCvInfo({ filename: cvFilename, uploadedAt: cvUploadedAt })
+          cvTextRef.current = cvText
+
+          // Check score cache first
+          const cacheRes = await fetch(`/api/cv/score-cache?jobId=${jobId}`)
+          const { cached } = await cacheRes.json()
+          if (cached) {
+            setResult({
+              score: cached.score,
+              matchedKeywords: cached.matched_keywords || [],
+              missingKeywords: cached.missing_keywords || [],
+              flags: cached.flags || [],
+              detectedRole: cached.detected_role || '',
+            })
+            setState('done')
+            return
+          }
+
+          // Auto-score with saved CV
+          await scoreWithText(cvText)
+        } else {
+          // Check if user is logged in (no CV but authenticated)
+          if (hasCv === false && res.status === 200) {
+            // Could be logged in with no CV, or anonymous
+            // The endpoint returns hasCv: false for both — check via a simple heuristic
+            setIsLoggedIn(false)
+          }
+          setState('idle')
+        }
+      } catch {
+        setState('idle')
+      }
+    }
+    checkSavedCv()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId])
+
+  async function scoreWithText(cvText: string) {
+    setState('scoring')
+    try {
+      const scoreRes = await fetch(`${process.env.NEXT_PUBLIC_CVPULSE_API_URL}/api/public/jd-score`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-rolepulse-key': 'rp_internal_scorer_key_2026' },
+        body: JSON.stringify({ cvText, jdText: jobDescription, roleHint: roleType }),
+      })
+      if (!scoreRes.ok) throw new Error('Scoring failed')
+      const data = await scoreRes.json()
+      setResult(data)
+      setState('done')
+
+      // Save to cache if logged in
+      if (isLoggedIn) {
+        await saveToCache(data)
+      }
+    } catch {
+      setErrorMsg('Something went wrong. Please try again.')
+      setState('error')
+    }
+  }
+
+  async function saveToCache(scoreResult: ScoreResult) {
+    try {
+      await fetch('/api/cv/score-cache', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId,
+          score: scoreResult.score,
+          missingKeywords: scoreResult.missingKeywords,
+          matchedKeywords: scoreResult.matchedKeywords,
+          flags: scoreResult.flags,
+          detectedRole: scoreResult.detectedRole,
+        }),
+      })
+    } catch {
+      // Non-fatal: cache save failing is OK
+    }
+  }
+
+  async function handleFile(f: File) {
+    if (f.size > 5 * 1024 * 1024) { setErrorMsg('File too large (max 5MB)'); setState('error'); return }
+    setFile(f)
     setState('uploading')
 
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('file', f)
 
     try {
       const extractRes = await fetch(`${process.env.NEXT_PUBLIC_CVPULSE_API_URL}/api/public/extract-text`, {
@@ -36,17 +135,9 @@ function CVScorer({ jobDescription, roleType }: { jobDescription: string; roleTy
       })
       if (!extractRes.ok) throw new Error('Failed to extract text')
       const { text } = await extractRes.json()
+      cvTextRef.current = text
 
-      setState('scoring')
-      const scoreRes = await fetch(`${process.env.NEXT_PUBLIC_CVPULSE_API_URL}/api/public/jd-score`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-rolepulse-key': 'rp_internal_scorer_key_2026' },
-        body: JSON.stringify({ cvText: text, jdText: jobDescription, roleHint: roleType }),
-      })
-      if (!scoreRes.ok) throw new Error('Scoring failed')
-      const data = await scoreRes.json()
-      setResult(data)
-      setState('done')
+      await scoreWithText(text)
     } catch {
       setErrorMsg('Something went wrong. Please try again.')
       setState('error')
@@ -54,6 +145,14 @@ function CVScorer({ jobDescription, roleType }: { jobDescription: string; roleTy
   }
 
   const ringColor = result ? (result.score >= 80 ? '#16A34A' : result.score >= 60 ? '#D97706' : '#DC2626') : '#E5E7EB'
+
+  if (state === 'checking') return (
+    <div className="border-t border-[#E5E7EB] pt-4 mt-4">
+      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-full bg-slate-200 rounded-full animate-pulse w-1/2" />
+      </div>
+    </div>
+  )
 
   if (state === 'idle' || state === 'error') return (
     <div className="border-t border-[#E5E7EB] pt-4 mt-4">
@@ -65,8 +164,8 @@ function CVScorer({ jobDescription, roleType }: { jobDescription: string; roleTy
         onDrop={(e) => {
           e.preventDefault()
           e.currentTarget.classList.remove('border-rp-accent', 'bg-orange-50/30')
-          const file = e.dataTransfer.files?.[0]
-          if (file) handleFile(file)
+          const f = e.dataTransfer.files?.[0]
+          if (f) handleFile(f)
         }}
       >
         <span className="text-xs text-slate-500">Upload CV to score</span>
@@ -122,7 +221,39 @@ function CVScorer({ jobDescription, roleType }: { jobDescription: string; roleTy
         className="text-[11px] text-rp-accent hover:underline">
         Get a full CV review on CV Pulse →
       </a>
-      <button onClick={() => { setState('idle'); setResult(null) }} className="block text-[10px] text-slate-400 hover:text-slate-600 mt-2">
+
+      {/* Returning user: saved CV info */}
+      {savedCvInfo && (
+        <p className="text-[10px] text-slate-400 mt-2">
+          Using your saved CV ·{' '}
+          <a href="/account/profile" className="text-rp-accent hover:underline">Update CV →</a>
+        </p>
+      )}
+
+      {/* Anonymous user: save CV prompt */}
+      {!isLoggedIn && (
+        <div className="mt-3 p-3 bg-slate-50 border border-[#E5E7EB] rounded-xl text-center">
+          <p className="text-xs font-semibold text-slate-700 mb-1">Score every role without re-uploading</p>
+          <p className="text-[10px] text-slate-500 mb-2">Save your CV to your free RolePulse profile</p>
+          <button
+            onClick={() => {
+              sessionStorage.setItem('staged_cv_text', cvTextRef.current)
+              sessionStorage.setItem('staged_cv_filename', file?.name || 'my-cv')
+              sessionStorage.setItem('staged_cv_return_url', window.location.pathname)
+              window.location.href = '/sign-up?reason=save-cv'
+            }}
+            className="text-xs bg-rp-accent text-white rounded-full px-4 py-1.5 hover:bg-rp-accent-dk transition-colors"
+          >
+            Save CV — it&apos;s free →
+          </button>
+          <p className="text-[10px] text-slate-400 mt-1.5">
+            Already have an account?{' '}
+            <a href="/sign-in" className="text-rp-accent hover:underline">Sign in</a>
+          </p>
+        </div>
+      )}
+
+      <button onClick={() => { setState('idle'); setResult(null); setFile(null) }} className="block text-[10px] text-slate-400 hover:text-slate-600 mt-2">
         Score a different CV
       </button>
     </div>
@@ -484,7 +615,7 @@ export default function JobPage() {
           )}
           {/* CV Scorer — mobile only (full width, below apply buttons) */}
           <div className="lg:hidden">
-            <CVScorer jobDescription={cleanHtml || job.description || ''} roleType={job.role_type || 'AE'} />
+            <CVScorer jobDescription={cleanHtml || job.description || ''} roleType={job.role_type || 'AE'} jobId={job.id} />
           </div>
         </div>
 
@@ -600,7 +731,7 @@ export default function JobPage() {
                 </div>
 
                 {/* CV Scorer — inline anonymous scoring */}
-                <CVScorer jobDescription={cleanHtml || job.description || ''} roleType={job.role_type || 'AE'} />
+                <CVScorer jobDescription={cleanHtml || job.description || ''} roleType={job.role_type || 'AE'} jobId={job.id} />
               </div>
             </div>
           </div>

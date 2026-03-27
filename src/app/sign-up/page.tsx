@@ -43,6 +43,26 @@ function SignUpForm() {
     }
   }
 
+  async function handleStagedCv() {
+    const stagedCvText = sessionStorage.getItem('staged_cv_text')
+    const stagedCvFilename = sessionStorage.getItem('staged_cv_filename')
+    const returnUrl = sessionStorage.getItem('staged_cv_return_url') || '/jobs'
+    if (stagedCvText) {
+      try {
+        await fetch('/api/cv/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cvText: stagedCvText, cvFilename: stagedCvFilename }),
+        })
+      } catch { /* non-fatal */ }
+      sessionStorage.removeItem('staged_cv_text')
+      sessionStorage.removeItem('staged_cv_filename')
+      sessionStorage.removeItem('staged_cv_return_url')
+      return returnUrl
+    }
+    return null
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
@@ -57,7 +77,8 @@ function SignUpForm() {
       return
     }
 
-    router.push(redirect)
+    const cvReturnUrl = await handleStagedCv()
+    router.push(cvReturnUrl || redirect)
   }
 
   return (
