@@ -9,15 +9,7 @@ const nextConfig: NextConfig = {
     ],
     unoptimized: true,  // allows any external image URL without domain restrictions
   },
-  async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/jobs',
-        permanent: false,
-      },
-    ]
-  },
+  // Removed root redirect — / now serves the brand homepage (page.tsx)
 };
 
 export default nextConfig;
