@@ -44,8 +44,9 @@ export function Nav() {
     <nav className="bg-rp-black border-b border-white/10 sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-8 h-14 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="text-white font-semibold text-base tracking-tight hover:text-zinc-300 transition-colors">
-          RolePulse
+        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <img src="/rolepulse-logo.png" alt="RolePulse" className="h-7 w-7 rounded" />
+          <span className="text-white font-semibold text-base tracking-tight">RolePulse</span>
         </Link>
 
         {/* Desktop nav */}
