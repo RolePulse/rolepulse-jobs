@@ -1,11 +1,125 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import DOMPurify from 'isomorphic-dompurify'
 import { SaveJobButton } from '@/components/SaveJobButton'
+
+// ── CV Scorer component ───────────────────────────────────────────────────────
+interface ScoreResult {
+  score: number
+  detectedRole: string
+  matchedKeywords: string[]
+  missingKeywords: string[]
+  flags: string[]
+}
+
+function CVScorer({ jobDescription, roleType }: { jobDescription: string; roleType: string }) {
+  const [state, setState] = useState<'idle' | 'uploading' | 'scoring' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState<ScoreResult | null>(null)
+  const [errorMsg, setErrorMsg] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function handleFile(file: File) {
+    if (file.size > 5 * 1024 * 1024) { setErrorMsg('File too large (max 5MB)'); setState('error'); return }
+    setState('uploading')
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const extractRes = await fetch(`${process.env.NEXT_PUBLIC_CVPULSE_API_URL}/api/public/extract-text`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (!extractRes.ok) throw new Error('Failed to extract text')
+      const { text } = await extractRes.json()
+
+      setState('scoring')
+      const scoreRes = await fetch(`${process.env.NEXT_PUBLIC_CVPULSE_API_URL}/api/public/jd-score`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-rolepulse-key': 'rp_internal_scorer_key_2026' },
+        body: JSON.stringify({ cvText: text, jdText: jobDescription, roleHint: roleType }),
+      })
+      if (!scoreRes.ok) throw new Error('Scoring failed')
+      const data = await scoreRes.json()
+      setResult(data)
+      setState('done')
+    } catch {
+      setErrorMsg('Something went wrong. Please try again.')
+      setState('error')
+    }
+  }
+
+  const ringColor = result ? (result.score >= 80 ? '#16A34A' : result.score >= 60 ? '#D97706' : '#DC2626') : '#E5E7EB'
+
+  if (state === 'idle' || state === 'error') return (
+    <div className="border-t border-[#E5E7EB] pt-4 mt-4">
+      <p className="text-xs font-semibold text-slate-700 mb-3">🎯 How well does your CV match this role?</p>
+      <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-[#E5E7EB] rounded-xl cursor-pointer hover:border-rp-accent hover:bg-orange-50/30 transition-colors">
+        <span className="text-xs text-slate-500">Upload CV to score</span>
+        <span className="text-[10px] text-slate-400 mt-0.5">PDF or Word · Max 5MB</span>
+        <input ref={fileRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
+      </label>
+      {state === 'error' && <p className="text-xs text-red-500 mt-2">{errorMsg}</p>}
+    </div>
+  )
+
+  if (state === 'uploading' || state === 'scoring') return (
+    <div className="border-t border-[#E5E7EB] pt-4 mt-4">
+      <p className="text-xs font-semibold text-slate-700 mb-2">🎯 {state === 'uploading' ? 'Reading your CV...' : 'Scoring against job...'}</p>
+      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-full bg-rp-accent rounded-full animate-pulse w-2/3" />
+      </div>
+    </div>
+  )
+
+  if (state === 'done' && result) return (
+    <div className="border-t border-[#E5E7EB] pt-4 mt-4">
+      <p className="text-xs font-semibold text-slate-700 mb-3">🎯 CV match score</p>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative w-14 h-14 shrink-0">
+          <svg viewBox="0 0 36 36" className="w-14 h-14 -rotate-90">
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#F3F4F6" strokeWidth="3" />
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke={ringColor} strokeWidth="3"
+              strokeDasharray={`${result.score} 100`} strokeLinecap="round" />
+          </svg>
+          <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-800">{result.score}</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-slate-700">{result.score >= 80 ? 'Strong match' : result.score >= 60 ? 'Partial match' : 'Low match'}</p>
+          <p className="text-[10px] text-slate-400">vs this {result.detectedRole || roleType} role</p>
+        </div>
+      </div>
+      {result.missingKeywords.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Missing keywords</p>
+          <div className="flex flex-wrap gap-1">
+            {result.missingKeywords.map(kw => (
+              <span key={kw} className="text-[10px] bg-red-50 text-red-600 border border-red-100 rounded px-1.5 py-0.5">{kw}</span>
+            ))}
+          </div>
+        </div>
+      )}
+      {result.flags.length > 0 && (
+        <div className="mb-3 space-y-1">
+          {result.flags.map((f, i) => <p key={i} className="text-[11px] text-slate-500">✗ {f}</p>)}
+        </div>
+      )}
+      <a href="https://www.cvpulse.io" target="_blank" rel="noopener noreferrer"
+        className="text-[11px] text-rp-accent hover:underline">
+        Get a full CV review on CV Pulse →
+      </a>
+      <button onClick={() => { setState('idle'); setResult(null) }} className="block text-[10px] text-slate-400 hover:text-slate-600 mt-2">
+        Score a different CV
+      </button>
+    </div>
+  )
+
+  return null
+}
 
 // ── Supabase client ──────────────────────────────────────────────────────────
 function getSupabase() {
@@ -471,24 +585,8 @@ export default function JobPage() {
                   )}
                 </div>
 
-                {/* CV Pulse slot */}
-                <div className="mt-5 pt-5 border-t border-[#E5E7EB]">
-                  <div className="flex items-start gap-3 mb-3">
-                    <span className="text-lg leading-none mt-0.5">🎯</span>
-                    <div>
-                      <p className="text-xs font-medium text-rp-text-1">See how your CV matches this role</p>
-                      <p className="text-[11px] text-rp-text-3 mt-0.5">Match score · Missing keywords · Quick fixes</p>
-                    </div>
-                  </div>
-                  <a
-                    href={`https://www.cvpulse.io?jd=${encodeURIComponent(job.title + ' at ' + (company?.name || ''))}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full text-center py-2.5 px-4 rounded-full border border-rp-accent text-rp-accent text-xs font-medium hover:bg-orange-50 transition-colors"
-                  >
-                    Score my CV against this role →
-                  </a>
-                </div>
+                {/* CV Scorer — inline anonymous scoring */}
+                <CVScorer jobDescription={cleanHtml || job.description || ''} roleType={job.role_type || 'AE'} />
               </div>
             </div>
           </div>
