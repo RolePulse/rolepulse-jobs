@@ -45,7 +45,7 @@ export function Nav() {
       <div className="max-w-5xl mx-auto px-8 h-14 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <img src="/rolepulse-logo.png" alt="RolePulse" className="h-7 w-7 rounded brightness-0 invert" />
+          <img src="/rolepulse-logo-white.png" alt="RolePulse" className="h-7 w-7 rounded" />
           <span className="text-white font-semibold text-base tracking-tight">RolePulse</span>
         </Link>
 
