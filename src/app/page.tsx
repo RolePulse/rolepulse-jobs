@@ -44,8 +44,9 @@ async function getFeaturedJobs() {
       .select('id, title, slug, location, remote, role_type, posted_at, companies(name, logo_url)')
       .eq('status', 'active')
       .order('posted_at', { ascending: false })
-      .limit(6)
-    return (data || []).map((j: any) => ({
+      .limit(50)
+
+    const jobs = (data || []).map((j: any) => ({
       id: j.id,
       title: j.title,
       slug: j.slug,
@@ -56,6 +57,24 @@ async function getFeaturedJobs() {
       company_name: j.companies?.name || '',
       company_logo: j.companies?.logo_url || null,
     }))
+
+    // Deduplicate: max 1 per company, max 1 per role_type
+    const seenCompanies = new Set<string>()
+    const seenRoleTypes = new Set<string>()
+    const deduped: typeof jobs = []
+
+    for (const job of jobs) {
+      const company = job.company_name
+      const roleType = job.role_type
+      if (!seenCompanies.has(company) && !seenRoleTypes.has(roleType)) {
+        seenCompanies.add(company)
+        seenRoleTypes.add(roleType)
+        deduped.push(job)
+        if (deduped.length >= 6) break
+      }
+    }
+
+    return deduped
   } catch {
     return []
   }

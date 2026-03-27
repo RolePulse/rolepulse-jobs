@@ -6,16 +6,19 @@ import { Zap, RotateCcw, Rocket } from 'lucide-react'
 const VALUE_PROPS = [
   {
     title: 'GTM roles only',
+    stat: '724 active roles',
     description: 'No engineering roles. No HR. Just AE, SDR, CSM, RevOps, and Marketing.',
     icon: Zap,
   },
   {
     title: 'Live ATS feeds',
+    stat: '200+ companies',
     description: 'Connected directly to Greenhouse, Ashby and Lever. Roles go live within hours, not days.',
     icon: RotateCcw,
   },
   {
     title: 'Built for what comes next',
+    stat: 'Updated daily',
     description:
       'CV matching, salary data, and alerts are coming. RolePulse is becoming the operating system for GTM careers.',
     icon: Rocket,
@@ -23,7 +26,7 @@ const VALUE_PROPS = [
 ]
 
 export function ValueProps() {
-  const [isVisible, setIsVisible] = useState(true) // start visible; animate on scroll as enhancement
+  const [isVisible, setIsVisible] = useState(true)
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -43,7 +46,7 @@ export function ValueProps() {
   }, [])
 
   return (
-    <div className="bg-white px-6 md:px-8 py-16 md:py-24" id="value-props">
+    <div className="bg-[#F9FAFB] px-6 md:px-8 py-16 md:py-24" id="value-props">
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
           {VALUE_PROPS.map((prop, idx) => {
@@ -64,6 +67,7 @@ export function ValueProps() {
                   <Icon className="w-6 h-6 text-rp-accent" />
                 </div>
                 <h3 className="text-xl font-bold text-rp-text-1">{prop.title}</h3>
+                <p className="text-rp-accent font-bold text-sm mb-1">{prop.stat}</p>
                 <p className="text-rp-text-3 leading-relaxed">{prop.description}</p>
               </div>
             )

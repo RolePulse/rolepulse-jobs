@@ -35,6 +35,15 @@ const config: Config = {
         "102": "1.02",
         "108": "1.08",
       },
+      animation: {
+        marquee: 'marquee 30s linear infinite',
+      },
+      keyframes: {
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
+      },
     },
   },
   plugins: [require('@tailwindcss/typography')],

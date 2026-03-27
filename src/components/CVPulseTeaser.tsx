@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useState, useEffect } from 'react'
 
 export function CVPulseTeaser() {
@@ -76,16 +75,7 @@ export function CVPulseTeaser() {
               job listing on RolePulse.
             </p>
 
-            {/* CTA with smooth animations */}
-            <Link
-              href="https://www.cvpulse.io"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-rp-accent font-semibold text-lg transition-all duration-150 inline-flex items-center gap-2 group hover:gap-3"
-            >
-              Learn more about CV Pulse
-              <span className="group-hover:translate-x-1 transition-transform duration-150 ease-out">→</span>
-            </Link>
+
           </div>
         </div>
       </div>
