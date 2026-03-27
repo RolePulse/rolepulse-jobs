@@ -154,14 +154,21 @@ async function ingestLever(token: string, companyId: string): Promise<{ count: n
   }
 }
 
-export async function runIngestion() {
+export async function runIngestion(opts?: { batchIndex?: number | null; batchSize?: number }) {
   const startTime = Date.now()
   let totalInserted = 0
   const errors: Record<string, string> = {}
   const supabase = getSupabase()
 
-  const { data: companies } = await supabase.from('companies').select('*').eq('is_employer', false)
-  if (!companies) return { totalInserted: 0, totalExpired: 0, errors: {} }
+  const { data: allCompanies } = await supabase.from('companies').select('*').eq('is_employer', false)
+  if (!allCompanies) return { totalInserted: 0, totalExpired: 0, errors: {} }
+
+  // Batch support: if batchIndex provided, slice the company list
+  const batchSize = opts?.batchSize ?? 20
+  const batchIndex = opts?.batchIndex ?? null
+  const companies = batchIndex !== null
+    ? allCompanies.slice(batchIndex * batchSize, (batchIndex + 1) * batchSize)
+    : allCompanies
 
   for (const company of companies) {
     if (!company.ats_provider || !company.ats_token) continue
