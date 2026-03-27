@@ -1,0 +1,79 @@
+'use client'
+
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+
+interface HomeHeroProps {
+  roleCount: number
+}
+
+export function HomeHero({ roleCount }: HomeHeroProps) {
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  useEffect(() => {
+    setIsLoaded(true)
+  }, [])
+
+  return (
+    <div
+      className="bg-rp-black px-6 md:px-8 pt-24 md:pt-32 pb-16 md:pb-24 relative overflow-hidden"
+      style={{
+        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
+        backgroundSize: '24px 24px',
+      }}
+    >
+      {/* Parallax dot grid on scroll */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+          transform: `translateY(0px)`,
+          transition: 'none',
+        }}
+      />
+
+      <div className="max-w-4xl mx-auto relative z-10">
+        {/* Headline with fade-in and slide-up animation */}
+        <div
+          className={`transition-all duration-700 ${
+            isLoaded
+              ? 'opacity-100 translate-y-0'
+              : 'opacity-0 translate-y-4'
+          }`}
+        >
+          <h1 className="text-[72px] md:text-[88px] font-black text-white leading-tight tracking-tight">
+            Every GTM role.{' '}
+            <span className="text-rp-accent">One place.</span>
+          </h1>
+        </div>
+
+        {/* Subline */}
+        <p className="text-base md:text-lg text-slate-400 mt-6 max-w-xl leading-relaxed">
+          Curated roles from 200+ GTM SaaS companies. Real-time feeds from Greenhouse,
+          Ashby and Lever. Updated daily.
+        </p>
+
+        {/* CTAs */}
+        <div className="mt-10 flex flex-col sm:flex-row gap-4">
+          <Link
+            href="/jobs"
+            className="inline-flex items-center justify-center px-8 py-4 rounded-full bg-rp-accent text-white font-bold text-base hover:bg-rp-accent-dk transition-all duration-150 hover:scale-102 hover:shadow-lg group"
+          >
+            Browse {roleCount.toLocaleString()} roles
+            <span className="ml-2 group-hover:translate-x-1 transition-transform duration-150">→</span>
+          </Link>
+          <Link
+            href="/post-a-job"
+            className="inline-flex items-center justify-center px-8 py-4 rounded-full border-2 border-white text-white font-bold text-base hover:bg-white hover:text-rp-black transition-all duration-150"
+          >
+            Post a job
+          </Link>
+        </div>
+      </div>
+
+      {/* Fade to white at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-b from-transparent to-white pointer-events-none" />
+    </div>
+  )
+}
