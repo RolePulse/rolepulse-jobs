@@ -45,7 +45,7 @@ async function ingestGreenhouse(token: string, companyId: string): Promise<{ cou
           company_id: companyId,
           title: job.title,
           slug,
-          description: job.content?.body || '',
+          description: (typeof job.content === 'string' ? job.content : job.content?.body) || '',
           apply_url: job.absolute_url,
           source: 'greenhouse',
           external_id: String(job.id),
