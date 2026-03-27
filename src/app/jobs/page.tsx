@@ -94,27 +94,28 @@ interface Job {
 }
 
 function diversify(jobs: Job[]): Job[] {
+  // Cap: max 5 roles per company per page, max 2 consecutive from same company
+  const companyCount: Record<string, number> = {}
   const result: Job[] = []
-  const pending: Job[] = [...jobs]
-  let lastCompany = ''
-  let consecutiveCount = 0
+  const deferred: Job[] = []
 
-  while (pending.length > 0) {
-    const idx = pending.findIndex((j) => {
-      if (consecutiveCount < 3) return true
-      return j.company_name !== lastCompany
-    })
-    if (idx === -1) { result.push(...pending); break }
-    const [job] = pending.splice(idx, 1)
-    if (job.company_name === lastCompany) {
-      consecutiveCount++
-    } else {
-      consecutiveCount = 1
-      lastCompany = job.company_name
-    }
+  // First pass: cap at 5 per company, max 2 consecutive
+  let lastCompany = ''
+  let consecutive = 0
+
+  for (const job of jobs) {
+    const co = job.company_name
+    companyCount[co] = (companyCount[co] || 0)
+    if (companyCount[co] >= 5) { deferred.push(job); continue }
+    if (co === lastCompany && consecutive >= 2) { deferred.push(job); continue }
+    companyCount[co]++
+    consecutive = co === lastCompany ? consecutive + 1 : 1
+    lastCompany = co
     result.push(job)
   }
-  return result
+
+  // Append remaining deferred at end (they'll be on next page anyway)
+  return [...result, ...deferred]
 }
 
 function JobsList() {
