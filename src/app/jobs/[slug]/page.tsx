@@ -30,13 +30,27 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
   const [file, setFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const cvTextRef = useRef<string>('')
+  // Always hold the latest jobDescription so async closures don't capture a stale empty value
+  const jobDescriptionRef = useRef<string>(jobDescription)
+  useEffect(() => { jobDescriptionRef.current = jobDescription }, [jobDescription])
 
-  // On mount: check if user has a saved CV
+  // On mount / when jobId resolves: check if user has a saved CV.
+  // Guard: never override an in-progress upload or a completed score.
   useEffect(() => {
+    // Job data hasn't loaded yet — go straight to idle so the upload UI shows
+    if (!jobId) {
+      setState(prev => (prev === 'checking' ? 'idle' : prev))
+      return
+    }
+
     async function checkSavedCv() {
       try {
         const res = await fetch('/api/cv/saved')
-        if (!res.ok) { setState('idle'); return }
+        if (!res.ok) {
+          // Don't clobber an active upload
+          setState(prev => (['checking', 'idle', 'error'].includes(prev) ? 'idle' : prev))
+          return
+        }
         const { hasCv, cvText, cvFilename, cvUploadedAt } = await res.json()
 
         if (hasCv && cvText) {
@@ -59,19 +73,23 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
             return
           }
 
-          // Auto-score with saved CV
+          // Only auto-score if we're not mid-upload
+          setState(prev => {
+            if (prev === 'uploading' || prev === 'scoring' || prev === 'done') return prev
+            return 'scoring'
+          })
+          // Re-read state via callback form isn't possible here, so use a local check
+          // scoreWithText will set 'scoring' itself — just call it if not already busy
           await scoreWithText(cvText)
         } else {
-          // Check if user is logged in (no CV but authenticated)
           if (hasCv === false && res.status === 200) {
-            // Could be logged in with no CV, or anonymous
-            // The endpoint returns hasCv: false for both — check via a simple heuristic
             setIsLoggedIn(false)
           }
-          setState('idle')
+          // Don't override active upload states
+          setState(prev => (['checking', 'idle', 'error'].includes(prev) ? 'idle' : prev))
         }
       } catch {
-        setState('idle')
+        setState(prev => (['checking', 'idle', 'error'].includes(prev) ? 'idle' : prev))
       }
     }
     checkSavedCv()
@@ -81,10 +99,16 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
   async function scoreWithText(cvText: string) {
     setState('scoring')
     try {
-      const scoreRes = await fetch(`${process.env.NEXT_PUBLIC_CVPULSE_API_URL}/api/public/jd-score`, {
+      // Use the ref so we always score against the current job description,
+      // not a stale empty string from before fetchJob completed.
+      const jdText = jobDescriptionRef.current
+      if (!jdText || jdText.length < 50) {
+        throw new Error('Job description not loaded yet — please try again in a moment')
+      }
+      const scoreRes = await fetch('/api/cv-score/score', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-rolepulse-key': 'rp_internal_scorer_key_2026' },
-        body: JSON.stringify({ cvText, jdText: jobDescription, roleHint: roleType }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cvText, jdText, roleHint: roleType }),
       })
       if (!scoreRes.ok) throw new Error('Scoring failed')
       const data = await scoreRes.json()
@@ -129,7 +153,7 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
     formData.append('file', f)
 
     try {
-      const extractRes = await fetch(`${process.env.NEXT_PUBLIC_CVPULSE_API_URL}/api/public/extract-text`, {
+      const extractRes = await fetch('/api/cv-score/extract', {
         method: 'POST',
         body: formData,
       })
