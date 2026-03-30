@@ -110,7 +110,10 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
         headers: { 'Content-Type': 'application/json', 'x-rolepulse-key': 'rp_internal_scorer_key_2026' },
         body: JSON.stringify({ cvText, jdText, roleHint: roleType }),
       })
-      if (!scoreRes.ok) throw new Error('Scoring failed')
+      if (!scoreRes.ok) {
+        const errBody = await scoreRes.json().catch(() => ({}))
+        throw new Error(`Score failed (${scoreRes.status}): ${errBody.error || 'unknown'}`)
+      }
       const data = await scoreRes.json()
       setResult(data)
       setState('done')
@@ -119,8 +122,10 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
       if (isLoggedIn) {
         await saveToCache(data)
       }
-    } catch {
-      setErrorMsg('Something went wrong. Please try again.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      console.error('[CVScorer] scoreWithText error:', msg)
+      setErrorMsg(msg)
       setState('error')
     }
   }
@@ -158,13 +163,20 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
         headers: { 'x-rolepulse-key': 'rp_internal_scorer_key_2026' },
         body: formData,
       })
-      if (!extractRes.ok) throw new Error('Failed to extract text')
+      if (!extractRes.ok) {
+        const errBody = await extractRes.json().catch(() => ({}))
+        throw new Error(`Extract failed (${extractRes.status}): ${errBody.error || 'unknown'}`)
+      }
       const { text } = await extractRes.json()
       cvTextRef.current = text
 
       await scoreWithText(text)
-    } catch {
-      setErrorMsg('Something went wrong. Please try again.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      console.error('[CVScorer] error:', msg)
+      setErrorMsg(msg.includes('Extract failed') || msg.includes('Scoring failed') || msg.includes('description')
+        ? msg
+        : 'Something went wrong. Please try again.')
       setState('error')
     }
   }
