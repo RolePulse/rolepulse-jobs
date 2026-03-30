@@ -103,7 +103,7 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
       // not a stale empty string from before fetchJob completed.
       const jdText = jobDescriptionRef.current
       if (!jdText || jdText.length < 50) {
-        throw new Error('Job description not loaded yet — please try again in a moment')
+        throw new Error('No job description available for this role — scoring against role type only')
       }
       const scoreRes = await fetch('https://www.cvpulse.io/api/public/jd-score', {
         method: 'POST',
@@ -562,6 +562,18 @@ export default function JobPage() {
   const isEmployerListing = job.source === 'employer'
   const companyDescription = getCompanyDescription(company?.name || '')
 
+  // Plain text JD for the CV scorer — strip HTML tags and decode entities
+  // This ensures the scorer always gets usable text even if cleanHtml hasn't loaded yet
+  const jdForScoring = (() => {
+    const source = cleanHtml || job.description || ''
+    return source
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+      .replace(/<[^>]+>/g, ' ')  // strip HTML tags
+      .replace(/\s+/g, ' ')
+      .trim()
+  })()
+
   // Build deduplicated meta pills
   const rawMeta = [
     job.location,
@@ -640,7 +652,7 @@ export default function JobPage() {
           )}
           {/* CV Scorer — mobile only (full width, below apply buttons) */}
           <div className="lg:hidden">
-            <CVScorer jobDescription={cleanHtml || job.description || ''} roleType={job.role_type || 'AE'} jobId={job.id} />
+            <CVScorer jobDescription={jdForScoring} roleType={job.role_type || 'AE'} jobId={job.id} />
           </div>
         </div>
 
@@ -756,7 +768,7 @@ export default function JobPage() {
                 </div>
 
                 {/* CV Scorer — inline anonymous scoring */}
-                <CVScorer jobDescription={cleanHtml || job.description || ''} roleType={job.role_type || 'AE'} jobId={job.id} />
+                <CVScorer jobDescription={jdForScoring} roleType={job.role_type || 'AE'} jobId={job.id} />
               </div>
             </div>
           </div>
