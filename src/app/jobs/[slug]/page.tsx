@@ -105,9 +105,9 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
       if (!jdText || jdText.length < 50) {
         throw new Error('Job description not loaded yet — please try again in a moment')
       }
-      const scoreRes = await fetch('/api/cv-score/score', {
+      const scoreRes = await fetch('https://www.cvpulse.io/api/public/jd-score', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-rolepulse-key': 'rp_internal_scorer_key_2026' },
         body: JSON.stringify({ cvText, jdText, roleHint: roleType }),
       })
       if (!scoreRes.ok) throw new Error('Scoring failed')
@@ -153,8 +153,9 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
     formData.append('file', f)
 
     try {
-      const extractRes = await fetch('/api/cv-score/extract', {
+      const extractRes = await fetch('https://www.cvpulse.io/api/public/extract-text', {
         method: 'POST',
+        headers: { 'x-rolepulse-key': 'rp_internal_scorer_key_2026' },
         body: formData,
       })
       if (!extractRes.ok) throw new Error('Failed to extract text')
