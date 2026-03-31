@@ -105,9 +105,9 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
       if (!jdText || jdText.length < 50) {
         throw new Error('No job description available for this role — scoring against role type only')
       }
-      const scoreRes = await fetch('https://www.cvpulse.io/api/public/jd-score', {
+      const scoreRes = await fetch('/api/cv-score/score', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-rolepulse-key': 'rp_internal_scorer_key_2026' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cvText, jdText, roleHint: roleType }),
       })
       if (!scoreRes.ok) {
@@ -158,9 +158,8 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
     formData.append('file', f)
 
     try {
-      const extractRes = await fetch('https://www.cvpulse.io/api/public/extract-text', {
+      const extractRes = await fetch('/api/cv-score/extract', {
         method: 'POST',
-        headers: { 'x-rolepulse-key': 'rp_internal_scorer_key_2026' },
         body: formData,
       })
       if (!extractRes.ok) {
