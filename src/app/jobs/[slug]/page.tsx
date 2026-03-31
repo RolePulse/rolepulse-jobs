@@ -500,6 +500,11 @@ export default function JobPage() {
   const [loading, setLoading] = useState(true)
   const [cleanHtml, setCleanHtml] = useState('')
 
+  // Reset scroll position to top on every slug change (fixes scroll carry-over from listings)
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [slug])
+
   useEffect(() => {
     async function fetchJob() {
       const supabase = getSupabase()
