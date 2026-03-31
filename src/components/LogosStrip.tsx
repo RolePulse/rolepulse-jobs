@@ -30,10 +30,22 @@ export function LogosStrip() {
         {[...LOGOS, ...LOGOS].map((logo, i) => (
           <div key={i} className="flex items-center justify-center px-8 shrink-0">
             <img
-              src={`https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${logo.domain}&size=40`}
+              src={`https://logo.clearbit.com/${logo.domain}?size=128`}
               alt={logo.name}
-              className="h-10 w-auto object-contain"
+              className="h-8 w-auto object-contain"
               loading="lazy"
+              onError={(e) => {
+                // Fallback to a text badge if logo fails to load
+                const target = e.currentTarget
+                target.style.display = 'none'
+                const parent = target.parentElement
+                if (parent) {
+                  const span = document.createElement('span')
+                  span.className = 'text-sm font-medium text-slate-400'
+                  span.textContent = logo.name
+                  parent.appendChild(span)
+                }
+              }}
             />
           </div>
         ))}
