@@ -44,11 +44,11 @@ export function CvPulseScorerPanel({ jobTitle, jobDescription, roleType }: Props
     setResult(null)
 
     try {
-      // Step 1: extract text
+      // Step 1: extract text — call CV Pulse public endpoint directly (Origin header satisfies CORS auth)
       const formData = new FormData()
       formData.append('file', file)
 
-      const extractRes = await fetch('/api/cv-score/extract', {
+      const extractRes = await fetch('https://www.cvpulse.io/api/public/extract-text', {
         method: 'POST',
         body: formData,
       })
@@ -61,9 +61,9 @@ export function CvPulseScorerPanel({ jobTitle, jobDescription, roleType }: Props
         throw new Error('Could not read enough text from your CV — try a text-based PDF')
       }
 
-      // Step 2: score against JD
+      // Step 2: score against JD — call CV Pulse public endpoint directly
       setState('scoring')
-      const scoreRes = await fetch('/api/cv-score/score', {
+      const scoreRes = await fetch('https://www.cvpulse.io/api/public/jd-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cvText, jdText: jobDescription, roleHint: roleType }),
