@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Metadata } from 'next'
-import { ScrollToTop } from '@/components/ScrollToTop'
+import { ScrollToTopClient } from './_scroll-to-top-client'
 
 function getSupabase() {
   return createClient(
@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default function JobLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <ScrollToTop />
+      <ScrollToTopClient />
       {children}
     </>
   )
