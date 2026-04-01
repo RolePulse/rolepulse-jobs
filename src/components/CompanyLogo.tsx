@@ -13,17 +13,27 @@ function companyColour(name: string): string {
 }
 
 /**
- * If src is a Google favicon gstatic URL, extract the domain and return a
- * high-res Clearbit logo URL instead. Clearbit returns crisp PNGs at any size.
+ * If src is a Google favicon gstatic URL, normalise it to the higher-quality
+ * faviconV2 endpoint (t3.gstatic.com/faviconV2) at size=128. This replaces the
+ * old Clearbit path which was shut down when HubSpot acquired Clearbit.
  */
 function resolveSrc(src: string): string {
   try {
     const u = new URL(src)
-    if (u.hostname === 't2.gstatic.com' || u.hostname.endsWith('.gstatic.com')) {
+    if (u.hostname.endsWith('.gstatic.com')) {
+      // Already a faviconV2 URL — ensure size=128
+      if (u.pathname.startsWith('/faviconV2')) {
+        u.searchParams.set('size', '128')
+        u.hostname = 't3.gstatic.com'
+        return u.toString()
+      }
+      // Legacy t2.gstatic.com favicon URL — upgrade to faviconV2
       const rawUrl = u.searchParams.get('url')
       if (rawUrl) {
         const domain = new URL(rawUrl).hostname
-        if (domain) return `https://logo.clearbit.com/${domain}?size=128`
+        if (domain) {
+          return `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`
+        }
       }
     }
   } catch {

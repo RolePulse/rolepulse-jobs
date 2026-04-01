@@ -30,7 +30,7 @@ export function LogosStrip() {
         {[...LOGOS, ...LOGOS].map((logo, i) => (
           <div key={i} className="flex items-center justify-center px-8 shrink-0">
             <img
-              src={`https://logo.clearbit.com/${logo.domain}?size=128`}
+              src={`https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${logo.domain}&size=128`}
               alt={logo.name}
               className="h-8 w-auto object-contain"
               loading="lazy"
