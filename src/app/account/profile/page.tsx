@@ -52,7 +52,8 @@ export default function ProfilePage() {
 
     try {
       // Extract text
-      const extractRes = await fetch(`${process.env.NEXT_PUBLIC_CVPULSE_API_URL}/api/public/extract-text`, {
+      const cvPulseUrl = process.env.NEXT_PUBLIC_CVPULSE_API_URL || 'https://www.cvpulse.io'
+      const extractRes = await fetch(`${cvPulseUrl}/api/public/extract-text`, {
         method: 'POST',
         body: formData,
       })
