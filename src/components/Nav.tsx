@@ -43,13 +43,19 @@ export function Nav() {
   return (
     <nav className="bg-rp-black border-b border-white/10 sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-8 h-14 flex items-center justify-between">
-        {/* Logo — icon-only waveform with orange accent */}
+        {/* Logo — icon-only waveform with orange accent diagonal */}
         <Link href="/" className="flex items-center hover:opacity-80 transition-opacity" aria-label="RolePulse">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            {/* Orange accent line */}
-            <line x1="0" y1="16" x2="32" y2="16" stroke="#FF6B00" strokeWidth="1.5" strokeLinecap="round" />
-            {/* Waveform pulse */}
-            <path d="M1 16h4l2.5-7.5 4 15 3-10.5 2.5 6 2-4H31" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Smooth sine waveform */}
+            <path
+              d="M1 16 C4 16, 5 8, 8 8 S11 24, 14 24 S17 8, 20 8 S23 24, 26 24 S29 16, 31 16"
+              stroke="white"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            {/* Orange diagonal accent line cutting through the middle */}
+            <line x1="4" y1="26" x2="28" y2="6" stroke="#FF6B00" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </Link>
 
