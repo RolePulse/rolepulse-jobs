@@ -352,18 +352,48 @@ function companyColour(name: string): string {
   return `hsl(${hue}, 55%, 45%)`
 }
 
+// ── Resolve blurry gstatic favicon URLs to high-res Clearbit logos ───────────
+function resolveLogoUrl(src: string): string {
+  try {
+    const u = new URL(src)
+    if (u.hostname === 't2.gstatic.com' || u.hostname.endsWith('.gstatic.com')) {
+      const rawUrl = u.searchParams.get('url')
+      if (rawUrl) {
+        const domain = new URL(rawUrl).hostname
+        if (domain) return `https://logo.clearbit.com/${domain}?size=128`
+      }
+    }
+  } catch {
+    // non-parseable src — return as-is
+  }
+  return src
+}
+
 // ── Company logo ──────────────────────────────────────────────────────────────
 function CompanyLogo({ name, logoUrl, size = 48 }: { name: string; logoUrl?: string; size?: number }) {
+  const resolved = logoUrl ? resolveLogoUrl(logoUrl) : undefined
   const [imgError, setImgError] = useState(false)
-  if (logoUrl && !imgError) {
+  const [triedClearbit, setTriedClearbit] = useState(false)
+  const [fallbackSrc, setFallbackSrc] = useState<string | undefined>(undefined)
+
+  const currentSrc = fallbackSrc ?? resolved
+
+  if (currentSrc && !imgError) {
     return (
       <Image
-        src={logoUrl}
+        src={currentSrc}
         alt={name}
         width={size}
         height={size}
         className="rounded-xl flex-shrink-0 object-contain"
-        onError={() => setImgError(true)}
+        onError={() => {
+          if (!triedClearbit && logoUrl && resolved !== logoUrl) {
+            setTriedClearbit(true)
+            setFallbackSrc(logoUrl)
+          } else {
+            setImgError(true)
+          }
+        }}
       />
     )
   }
