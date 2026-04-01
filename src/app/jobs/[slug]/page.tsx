@@ -173,9 +173,7 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error'
       console.error('[CVScorer] error:', msg)
-      setErrorMsg(msg.includes('Extract failed') || msg.includes('Scoring failed') || msg.includes('description')
-        ? msg
-        : 'Something went wrong. Please try again.')
+      setErrorMsg(msg)
       setState('error')
     }
   }
