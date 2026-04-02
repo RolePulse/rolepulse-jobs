@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(_req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ hasCv: false })
+  if (!user) return NextResponse.json({ isAuthenticated: false, hasCv: false })
 
   const { data } = await supabase
     .from('job_seeker_profiles')
@@ -13,6 +13,7 @@ export async function GET(_req: NextRequest) {
     .maybeSingle()
 
   return NextResponse.json({
+    isAuthenticated: true,
     hasCv: !!(data?.cv_text),
     cvFilename: data?.cv_filename || null,
     cvUploadedAt: data?.cv_uploaded_at || null,

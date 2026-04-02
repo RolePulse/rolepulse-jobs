@@ -51,10 +51,13 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
           setState(prev => (['checking', 'idle', 'error'].includes(prev) ? 'idle' : prev))
           return
         }
-        const { hasCv, cvText, cvFilename, cvUploadedAt } = await res.json()
+        const { isAuthenticated, hasCv, cvText, cvFilename, cvUploadedAt } = await res.json()
+
+        // Always set isLoggedIn from isAuthenticated, not from hasCv.
+        // A logged-in user with no saved CV should still see the "auto-save" path.
+        if (isAuthenticated) setIsLoggedIn(true)
 
         if (hasCv && cvText) {
-          setIsLoggedIn(true)
           setSavedCvInfo({ filename: cvFilename, uploadedAt: cvUploadedAt })
           cvTextRef.current = cvText
 
@@ -172,6 +175,20 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
       cvTextRef.current = text
 
       await scoreWithText(text)
+
+      // If the user is logged in but had no saved CV, auto-save now — no re-auth needed
+      if (isLoggedIn && !savedCvInfo) {
+        try {
+          await fetch('/api/cv/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cvText: text, cvFilename: f.name }),
+          })
+          setSavedCvInfo({ filename: f.name, uploadedAt: new Date().toISOString() })
+        } catch {
+          // Non-fatal: save failing silently is OK
+        }
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error'
       console.error('[CVScorer] error:', msg)
