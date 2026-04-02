@@ -46,7 +46,7 @@ export function Nav() {
         {/* Logo — RolePulse brand asset */}
         <Link href="/" className="flex items-center hover:opacity-80 transition-opacity" aria-label="RolePulse">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/rolepulse-logo-white.png" alt="RolePulse" width={32} height={32} className="w-8 h-8 object-contain" />
+          <img src="/rolepulse-logo.png" alt="RolePulse" height={32} className="h-8 w-auto object-contain" />
         </Link>
 
         {/* Desktop nav */}
