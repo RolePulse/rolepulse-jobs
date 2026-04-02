@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { JobRow, type MatchScoreState } from '@/components/JobRow'
 import { JobRowSkeleton } from '@/components/JobRowSkeleton'
+import { compositeScore, locationScore, salaryScore, type JobPreferences, type JobForScoring } from '@/lib/matchScoring'
 
 const PAGE_SIZE = 50
 
@@ -92,6 +93,8 @@ interface Job {
   company_name: string
   company_logo: string | null
   description: string | null
+  salary_min?: number | null
+  salary_max?: number | null
 }
 
 const CV_SCORE_SESSION_PREFIX = 'rp_cv_score_'
@@ -160,12 +163,10 @@ async function scoreBatch(
 }
 
 function diversify(jobs: Job[]): Job[] {
-  // Cap: max 5 roles per company per page, max 2 consecutive from same company
   const companyCount: Record<string, number> = {}
   const result: Job[] = []
   const deferred: Job[] = []
 
-  // First pass: cap at 5 per company, max 2 consecutive
   let lastCompany = ''
   let consecutive = 0
 
@@ -180,8 +181,118 @@ function diversify(jobs: Job[]): Job[] {
     result.push(job)
   }
 
-  // Append remaining deferred at end (they'll be on next page anyway)
   return [...result, ...deferred]
+}
+
+interface MatchBreakdown {
+  cvScore: number | null
+  locScore: number
+  salScore: number
+  total: number
+}
+
+function MatchBreakdownBadge({ breakdown }: { breakdown: MatchBreakdown }) {
+  const parts: string[] = []
+  if (breakdown.cvScore !== null) parts.push(`CV ${breakdown.cvScore}%`)
+  parts.push(breakdown.locScore >= 100 ? 'Location ✓' : breakdown.locScore > 0 ? `Location ~${breakdown.locScore}%` : 'Location ✗')
+  if (breakdown.salScore !== 50) {
+    parts.push(breakdown.salScore >= 100 ? 'Salary ✓' : breakdown.salScore === 0 ? 'Salary ✗' : `Salary ~${breakdown.salScore}%`)
+  }
+  return (
+    <span className="text-[10px] text-slate-400 whitespace-nowrap hidden sm:inline">
+      {parts.join(' · ')}
+    </span>
+  )
+}
+
+function JobsForYouContent({
+  jobs,
+  matchScores,
+  matchBreakdowns,
+  prefs,
+  loading,
+  hasCv,
+}: {
+  jobs: Job[]
+  matchScores: Record<string, MatchScoreState>
+  matchBreakdowns: Record<string, MatchBreakdown>
+  prefs: JobPreferences | null
+  loading: boolean
+  hasCv: boolean
+}) {
+  if (!hasCv) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-2xl mb-3">✨</p>
+        <h3 className="text-lg font-semibold text-slate-700 mb-2">Upload your CV to see personalised job matches</h3>
+        <p className="text-slate-500 text-sm mb-6">We&apos;ll rank every role by how well it matches your profile.</p>
+        <a
+          href="/account/profile"
+          className="inline-flex items-center px-5 py-2.5 rounded-full bg-rp-accent text-white text-sm font-medium hover:opacity-90 transition-opacity"
+        >
+          Upload CV →
+        </a>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return <>{[...Array(8)].map((_, i) => <JobRowSkeleton key={i} />)}</>
+  }
+
+  const hasPrefs = prefs && (prefs.preferredLocationType !== 'open' || prefs.salaryMin !== null || prefs.salaryMax !== null)
+  const strongMatches = jobs.filter(j => {
+    const s = matchScores[j.id]
+    return typeof s === 'number' && s >= 60
+  })
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-6">
+        <p className="text-sm text-rp-text-3">
+          Showing {jobs.length} roles matched to your profile
+        </p>
+        <a href="/account/profile" className="text-xs text-rp-accent hover:underline">
+          Edit preferences →
+        </a>
+      </div>
+
+      {!hasPrefs && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-6 text-xs text-slate-600">
+          Based on your CV, these roles are your best matches.{' '}
+          <a href="/account/profile" className="text-rp-accent hover:underline">Add location and salary preferences</a> to refine further.
+        </div>
+      )}
+
+      {jobs.length === 0 && (
+        <div className="text-center py-16">
+          <p className="text-slate-500 text-sm mb-4">No scored matches yet — scoring is still running.</p>
+          <p className="text-xs text-slate-400">Check back in a moment.</p>
+        </div>
+      )}
+
+      {jobs.length > 0 && strongMatches.length < 5 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-6 text-xs text-amber-700">
+          Based on your CV, these roles are your best matches. Add location and salary preferences to refine further.
+        </div>
+      )}
+
+      {jobs.map((job: Job) => (
+        <div key={job.id} className="relative">
+          <JobRow
+            job={job}
+            companyLogo={job.company_logo ?? undefined}
+            matchScore={matchScores[job.id] ?? undefined}
+          />
+          {matchBreakdowns[job.id] && matchScores[job.id] !== 'loading' && (
+            <div className="px-0 pb-2 -mt-2 flex justify-end">
+              <MatchBreakdownBadge breakdown={matchBreakdowns[job.id]} />
+            </div>
+          )}
+        </div>
+      ))}
+    </>
+  )
 }
 
 function JobsList() {
@@ -195,6 +306,17 @@ function JobsList() {
   const [matchScores, setMatchScores] = useState<Record<string, MatchScoreState>>({})
   const scoringRef = useRef(false)
 
+  // Jobs For You state
+  const [activeTab, setActiveTab] = useState<'all' | 'for-you'>('all')
+  const [hasCv, setHasCv] = useState(false)
+  const [cvText, setCvText] = useState<string | null>(null)
+  const [prefs, setPrefs] = useState<JobPreferences | null>(null)
+  const [forYouJobs, setForYouJobs] = useState<Job[]>([])
+  const [forYouLoading, setForYouLoading] = useState(false)
+  const [forYouScored, setForYouScored] = useState(false)
+  const [matchBreakdowns, setMatchBreakdowns] = useState<Record<string, MatchBreakdown>>({})
+  const forYouScoringRef = useRef(false)
+
   const selectedRole = searchParams.get('role')
   const selectedCompany = searchParams.get('company')
   const selectedLocation = searchParams.get('location') || ''
@@ -204,6 +326,37 @@ function JobsList() {
   useEffect(() => {
     setSearchInput(q)
   }, [q])
+
+  // Load CV status and prefs on mount
+  useEffect(() => {
+    async function loadCvAndPrefs() {
+      try {
+        const [cvRes, prefsRes] = await Promise.all([
+          fetch('/api/cv/saved'),
+          fetch('/api/preferences'),
+        ])
+        if (cvRes.ok) {
+          const cvData = await cvRes.json()
+          setHasCv(cvData.hasCv)
+          setCvText(cvData.cvText || null)
+        }
+        if (prefsRes.ok) {
+          const prefsData = await prefsRes.json()
+          setPrefs({
+            preferredLocationType: prefsData.preferredLocationType ?? 'open',
+            preferredLocationCity: prefsData.preferredLocationCity ?? null,
+            salaryMin: prefsData.salaryMin ?? null,
+            salaryMax: prefsData.salaryMax ?? null,
+            salaryCurrency: prefsData.salaryCurrency ?? 'GBP',
+            openToContract: prefsData.openToContract ?? false,
+          })
+        }
+      } catch {
+        // Not signed in — tabs still work, just no personalisation
+      }
+    }
+    loadCvAndPrefs()
+  }, [])
 
   function handleSearchChange(value: string) {
     setSearchInput(value)
@@ -303,12 +456,11 @@ function JobsList() {
         return true
       })
 
-      // Company diversity — max 3 consecutive same company
       const finalJobs = diversify(dedupedJobs)
       setJobs(finalJobs)
       setLoading(false)
 
-      // Pre-populate scores from sessionStorage (instant, no API call)
+      // Pre-populate scores from sessionStorage
       const cachedScores: Record<string, MatchScoreState> = {}
       for (const job of finalJobs) {
         const cached = getSessionScore(job.id)
@@ -322,7 +474,7 @@ function JobsList() {
     fetchData()
   }, [selectedRole, selectedCompany, selectedLocation, q, page])
 
-  // Trigger batch scoring once jobs are loaded and we have a saved CV
+  // Batch scoring for All Jobs tab
   useEffect(() => {
     if (loading || jobs.length === 0 || scoringRef.current) return
 
@@ -330,12 +482,11 @@ function JobsList() {
       try {
         const res = await fetch('/api/cv/saved')
         if (!res.ok) return
-        const { hasCv, cvText } = await res.json()
-        if (!hasCv || !cvText) return
+        const { hasCv: cv, cvText: text } = await res.json()
+        if (!cv || !text) return
 
         scoringRef.current = true
 
-        // Mark all unscored jobs as loading
         setMatchScores(prev => {
           const next = { ...prev }
           for (const job of jobs) {
@@ -346,11 +497,11 @@ function JobsList() {
           return next
         })
 
-        await scoreBatch(jobs, cvText, (jobId, score) => {
+        await scoreBatch(jobs, text, (jobId, score) => {
           setMatchScores(prev => ({ ...prev, [jobId]: score }))
         })
       } catch {
-        // Silently fail — badges just won't show
+        // Silently fail
       } finally {
         scoringRef.current = false
       }
@@ -360,14 +511,134 @@ function JobsList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, jobs])
 
-  // Reset scoring state when jobs change (new page/filter)
+  // Reset scoring state when jobs change
   useEffect(() => {
     scoringRef.current = false
     setMatchScores({})
   }, [selectedRole, selectedCompany, selectedLocation, q, page])
 
+  // "Jobs For You" tab: fetch all active jobs, score, rank
+  useEffect(() => {
+    if (activeTab !== 'for-you' || !hasCv || !cvText || forYouScoringRef.current) return
+    if (forYouScored) return
+
+    async function loadForYou() {
+      setForYouLoading(true)
+      forYouScoringRef.current = true
+
+      try {
+        // Fetch all active jobs (up to 200 for ranking)
+        const supabase = getSupabase()
+        const { data: jobData } = await supabase
+          .from('jobs')
+          .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url)')
+          .eq('status', 'active')
+          .order('posted_at', { ascending: false })
+          .limit(200)
+
+        const allJobs: Job[] = (jobData || []).map((j: any) => ({
+          ...j,
+          company_name: j.companies?.name || '',
+          company_logo: j.companies?.logo_url || null,
+          description: j.description || null,
+          salary_min: j.salary_min ?? null,
+          salary_max: j.salary_max ?? null,
+        }))
+
+        // Deduplicate
+        const seen = new Set<string>()
+        const dedupedJobs = allJobs.filter(job => {
+          if (seen.has(job.slug)) return false
+          seen.add(job.slug)
+          return true
+        })
+
+        setForYouLoading(false)
+
+        // Pre-fill from session cache
+        const initialScores: Record<string, MatchScoreState> = {}
+        for (const job of dedupedJobs) {
+          const cached = getSessionScore(job.id)
+          if (cached !== null) initialScores[job.id] = cached
+        }
+        setMatchScores(prev => ({ ...prev, ...initialScores }))
+
+        // Mark unscored as loading
+        setMatchScores(prev => {
+          const next = { ...prev }
+          for (const job of dedupedJobs) {
+            if (next[job.id] === undefined || next[job.id] === null) {
+              next[job.id] = 'loading'
+            }
+          }
+          return next
+        })
+
+        // Score all jobs
+        const cvScores: Record<string, number> = {}
+        for (const jobId in initialScores) {
+          const s = initialScores[jobId]
+          if (typeof s === 'number') cvScores[jobId] = s
+        }
+
+        await scoreBatch(dedupedJobs, cvText!, (jobId, score) => {
+          cvScores[jobId] = score
+          setMatchScores(prev => ({ ...prev, [jobId]: score }))
+
+          // Recompute composite and re-rank
+          setForYouJobs(currentJobs => {
+            const breakdowns: Record<string, MatchBreakdown> = {}
+            const scored = dedupedJobs.map(job => {
+              const cv = cvScores[job.id] ?? null
+              const locScore_ = prefs ? locationScore(job as JobForScoring, prefs) : 100
+              const salScore_ = prefs ? salaryScore(job as JobForScoring, prefs) : 100
+              const total = compositeScore(cv, locScore_, salScore_)
+              breakdowns[job.id] = { cvScore: cv, locScore: locScore_, salScore: salScore_, total }
+              return { job, total }
+            })
+
+            scored.sort((a, b) => b.total - a.total)
+            setMatchBreakdowns(prev => ({ ...prev, ...breakdowns }))
+            // Only include jobs with at least some score signal
+            return scored
+              .filter(x => cvScores[x.job.id] !== undefined)
+              .map(x => x.job)
+          })
+
+          void currentJobs
+        })
+
+        // Final sort after all scoring done
+        const finalBreakdowns: Record<string, MatchBreakdown> = {}
+        const scored = dedupedJobs.map(job => {
+          const cv = cvScores[job.id] ?? null
+          const locScore_ = prefs ? locationScore(job as JobForScoring, prefs) : 100
+          const salScore_ = prefs ? salaryScore(job as JobForScoring, prefs) : 100
+          const total = compositeScore(cv, locScore_, salScore_)
+          finalBreakdowns[job.id] = { cvScore: cv, locScore: locScore_, salScore: salScore_, total }
+          return { job, total }
+        })
+
+        scored.sort((a, b) => b.total - a.total)
+        setMatchBreakdowns(finalBreakdowns)
+        setForYouJobs(scored.filter(x => cvScores[x.job.id] !== undefined).map(x => x.job))
+        setForYouScored(true)
+      } catch {
+        setForYouLoading(false)
+      } finally {
+        forYouScoringRef.current = false
+      }
+    }
+
+    loadForYou()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, hasCv, cvText, prefs])
+
   const totalPages = Math.ceil(total / PAGE_SIZE)
   const totalCount = total
+
+  // Dummy reference to avoid TS complaint
+  const currentJobs = forYouJobs
 
   return (
     <>
@@ -398,139 +669,182 @@ function JobsList() {
         <div className="bg-gradient-to-b from-[#111827] to-white h-8" />
       </div>
 
-      {/* Search bar */}
-      <div className="border-b border-rp-border px-8 py-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative">
-            <svg
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search roles, companies, skills..."
-              className="w-full pl-10 pr-10 rounded-full border border-rp-border bg-white text-rp-text-1 text-sm focus:outline-none focus:border-rp-accent"
-              style={{ height: '52px' }}
-            />
-            {searchInput && (
-              <button
-                onClick={clearSearch}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-rp-text-3 hover:text-rp-text-1 transition-colors"
-                aria-label="Clear search"
-              >
-                ×
-              </button>
+      {/* Tab switcher */}
+      <div className="border-b border-rp-border px-8">
+        <div className="max-w-4xl mx-auto flex gap-0">
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'all'
+                ? 'border-rp-accent text-rp-accent'
+                : 'border-transparent text-rp-text-3 hover:text-rp-text-1'
+            }`}
+          >
+            All Jobs
+          </button>
+          <button
+            onClick={() => setActiveTab('for-you')}
+            className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+              activeTab === 'for-you'
+                ? 'border-rp-accent text-rp-accent'
+                : 'border-transparent text-rp-text-3 hover:text-rp-text-1'
+            }`}
+          >
+            Jobs For You <span className="text-xs">✨</span>
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'for-you' ? (
+        /* Jobs For You tab */
+        <div className="max-w-4xl mx-auto px-8 py-8">
+          <JobsForYouContent
+            jobs={currentJobs}
+            matchScores={matchScores}
+            matchBreakdowns={matchBreakdowns}
+            prefs={prefs}
+            loading={forYouLoading}
+            hasCv={hasCv}
+          />
+        </div>
+      ) : (
+        /* All Jobs tab */
+        <>
+          {/* Search bar */}
+          <div className="border-b border-rp-border px-8 py-4">
+            <div className="max-w-4xl mx-auto">
+              <div className="relative">
+                <svg
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder="Search roles, companies, skills..."
+                  className="w-full pl-10 pr-10 rounded-full border border-rp-border bg-white text-rp-text-1 text-sm focus:outline-none focus:border-rp-accent"
+                  style={{ height: '52px' }}
+                />
+                {searchInput && (
+                  <button
+                    onClick={clearSearch}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-rp-text-3 hover:text-rp-text-1 transition-colors"
+                    aria-label="Clear search"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Role filters */}
+          <div className="border-b border-rp-border px-8 py-4">
+            <div className="max-w-4xl mx-auto">
+              <div className="relative after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none md:after:hidden">
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:flex-wrap">
+                  <FilterPill role="all" selected={!selectedRole || selectedRole === 'all'} />
+                  {ROLE_TYPES.map((role) => (
+                    <FilterPill key={role} role={role} selected={selectedRole === role} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Location filters */}
+          <div className="border-b border-rp-border px-8 py-3">
+            <div className="max-w-4xl mx-auto">
+              <div className="relative after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none md:after:hidden">
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:flex-wrap">
+                  {LOCATION_FILTERS.map((loc) => (
+                    <LocationPill key={loc.value} loc={loc} selected={selectedLocation === loc.value} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Company filter badge */}
+          {selectedCompany && (
+            <div className="max-w-4xl mx-auto px-8 pt-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-rp-text-2">Company: <strong>{selectedCompany}</strong></span>
+                <a href="/jobs" className="text-xs text-rp-text-3 hover:text-rp-text-1 border border-rp-border rounded px-2 py-0.5">✕ Clear</a>
+              </div>
+            </div>
+          )}
+
+          {/* Listings */}
+          <div className="max-w-4xl mx-auto px-8 py-8">
+            {!loading && (
+              <p className="text-sm text-rp-text-3 mb-6">
+                {total.toLocaleString()} open roles{q ? ` matching "${q}"` : ''}
+              </p>
+            )}
+
+            {loading ? (
+              [...Array(8)].map((_, i) => <JobRowSkeleton key={i} />)
+            ) : jobs.length === 0 ? (
+              <div className="text-center py-20">
+                <svg
+                  className="mx-auto h-12 w-12 text-slate-300 mb-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">No roles found</h3>
+                <p className="text-slate-500 mb-6">Try a different search term or adjust your filters.</p>
+                <a
+                  href="/jobs"
+                  className="inline-flex items-center px-4 py-2 rounded-full border border-slate-300 text-sm text-slate-600 hover:border-slate-400 transition-colors"
+                >
+                  ← Clear filters
+                </a>
+              </div>
+            ) : (
+              jobs.map((job: Job) => (
+                <JobRow
+                  key={job.id}
+                  job={job}
+                  companyLogo={job.company_logo ?? undefined}
+                  matchScore={matchScores[job.id] ?? undefined}
+                />
+              ))
+            )}
+
+            {/* Pagination */}
+            {!loading && totalPages > 1 && (
+              <div className="flex items-center justify-between mt-10 pt-6 border-t border-rp-border">
+                <button
+                  onClick={() => goToPage(page - 1)}
+                  disabled={page <= 1}
+                  className="px-5 py-2.5 rounded-lg border border-rp-border text-sm font-medium text-rp-text-1 hover:bg-rp-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ← Prev
+                </button>
+                <span className="text-sm text-rp-text-3">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  onClick={() => goToPage(page + 1)}
+                  disabled={page >= totalPages}
+                  className="px-5 py-2.5 rounded-lg border border-rp-border text-sm font-medium text-rp-text-1 hover:bg-rp-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next →
+                </button>
+              </div>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Role filters */}
-      <div className="border-b border-rp-border px-8 py-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none md:after:hidden">
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:flex-wrap">
-              <FilterPill role="all" selected={!selectedRole || selectedRole === 'all'} />
-              {ROLE_TYPES.map((role) => (
-                <FilterPill key={role} role={role} selected={selectedRole === role} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Location filters */}
-      <div className="border-b border-rp-border px-8 py-3">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none md:after:hidden">
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:flex-wrap">
-              {LOCATION_FILTERS.map((loc) => (
-                <LocationPill key={loc.value} loc={loc} selected={selectedLocation === loc.value} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Company filter badge */}
-      {selectedCompany && (
-        <div className="max-w-4xl mx-auto px-8 pt-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-rp-text-2">Company: <strong>{selectedCompany}</strong></span>
-            <a href="/jobs" className="text-xs text-rp-text-3 hover:text-rp-text-1 border border-rp-border rounded px-2 py-0.5">✕ Clear</a>
-          </div>
-        </div>
+        </>
       )}
-
-      {/* Listings */}
-      <div className="max-w-4xl mx-auto px-8 py-8">
-        {!loading && (
-          <p className="text-sm text-rp-text-3 mb-6">
-            {total.toLocaleString()} open roles{q ? ` matching "${q}"` : ''}
-          </p>
-        )}
-
-        {loading ? (
-          [...Array(8)].map((_, i) => <JobRowSkeleton key={i} />)
-        ) : jobs.length === 0 ? (
-          <div className="text-center py-20">
-            <svg
-              className="mx-auto h-12 w-12 text-slate-300 mb-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <h3 className="text-lg font-semibold text-slate-700 mb-2">No roles found</h3>
-            <p className="text-slate-500 mb-6">Try a different search term or adjust your filters.</p>
-            <a
-              href="/jobs"
-              className="inline-flex items-center px-4 py-2 rounded-full border border-slate-300 text-sm text-slate-600 hover:border-slate-400 transition-colors"
-            >
-              ← Clear filters
-            </a>
-          </div>
-        ) : (
-          jobs.map((job: Job) => (
-            <JobRow
-              key={job.id}
-              job={job}
-              companyLogo={job.company_logo ?? undefined}
-              matchScore={matchScores[job.id] ?? undefined}
-            />
-          ))
-        )}
-
-        {/* Pagination */}
-        {!loading && totalPages > 1 && (
-          <div className="flex items-center justify-between mt-10 pt-6 border-t border-rp-border">
-            <button
-              onClick={() => goToPage(page - 1)}
-              disabled={page <= 1}
-              className="px-5 py-2.5 rounded-lg border border-rp-border text-sm font-medium text-rp-text-1 hover:bg-rp-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              ← Prev
-            </button>
-            <span className="text-sm text-rp-text-3">
-              Page {page} of {totalPages}
-            </span>
-            <button
-              onClick={() => goToPage(page + 1)}
-              disabled={page >= totalPages}
-              className="px-5 py-2.5 rounded-lg border border-rp-border text-sm font-medium text-rp-text-1 hover:bg-rp-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Next →
-            </button>
-          </div>
-        )}
-      </div>
     </>
   )
 }

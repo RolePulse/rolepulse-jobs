@@ -10,6 +10,24 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+const LOCATION_TYPE_OPTIONS = [
+  { value: 'open', label: 'Open to all' },
+  { value: 'remote', label: 'Remote only' },
+  { value: 'hybrid', label: 'Hybrid' },
+  { value: 'onsite', label: 'On-site' },
+]
+
+const CURRENCY_OPTIONS = ['GBP', 'USD', 'EUR']
+
+interface Preferences {
+  preferredLocationType: string
+  preferredLocationCity: string
+  salaryMin: string
+  salaryMax: string
+  salaryCurrency: string
+  openToContract: boolean
+}
+
 export default function ProfilePage() {
   const [hasCv, setHasCv] = useState(false)
   const [cvFilename, setCvFilename] = useState<string | null>(null)
@@ -17,6 +35,19 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+
+  // Preferences
+  const [prefs, setPrefs] = useState<Preferences>({
+    preferredLocationType: 'open',
+    preferredLocationCity: '',
+    salaryMin: '',
+    salaryMax: '',
+    salaryCurrency: 'GBP',
+    openToContract: false,
+  })
+  const [prefsSaving, setPrefsSaving] = useState(false)
+  const [prefsMessage, setPrefsMessage] = useState<string | null>(null)
+
   const router = useRouter()
 
   useEffect(() => {
@@ -24,7 +55,7 @@ export default function ProfilePage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/sign-in'); return }
-      fetchCvStatus()
+      await Promise.all([fetchCvStatus(), fetchPreferences()])
     }
     checkAuth()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -40,6 +71,47 @@ export default function ProfilePage() {
       setCvUploadedAt(data.cvUploadedAt)
     } catch { /* ignore */ }
     setLoading(false)
+  }
+
+  async function fetchPreferences() {
+    try {
+      const res = await fetch('/api/preferences')
+      if (!res.ok) return
+      const data = await res.json()
+      setPrefs({
+        preferredLocationType: data.preferredLocationType ?? 'open',
+        preferredLocationCity: data.preferredLocationCity ?? '',
+        salaryMin: data.salaryMin != null ? String(data.salaryMin) : '',
+        salaryMax: data.salaryMax != null ? String(data.salaryMax) : '',
+        salaryCurrency: data.salaryCurrency ?? 'GBP',
+        openToContract: data.openToContract ?? false,
+      })
+    } catch { /* ignore */ }
+  }
+
+  async function savePreferences() {
+    setPrefsSaving(true)
+    setPrefsMessage(null)
+    try {
+      const res = await fetch('/api/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preferred_location_type: prefs.preferredLocationType,
+          preferred_location_city: prefs.preferredLocationCity || null,
+          salary_min: prefs.salaryMin ? parseInt(prefs.salaryMin, 10) : null,
+          salary_max: prefs.salaryMax ? parseInt(prefs.salaryMax, 10) : null,
+          salary_currency: prefs.salaryCurrency,
+          open_to_contract: prefs.openToContract,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to save')
+      setPrefsMessage('Preferences saved!')
+    } catch {
+      setPrefsMessage('Failed to save preferences')
+    }
+    setPrefsSaving(false)
+    setTimeout(() => setPrefsMessage(null), 3000)
   }
 
   async function handleUploadOrReplace(file: File) {
@@ -159,6 +231,103 @@ export default function ProfilePage() {
           <p className="text-[10px] text-slate-400 mt-3">
             Your CV is used to automatically score roles on RolePulse — no re-uploading needed.
           </p>
+        </div>
+
+        {/* Job Preferences section */}
+        <div className="border border-[#E5E7EB] rounded-xl p-5 mb-6">
+          <h3 className="text-sm font-semibold text-slate-700 mb-1">Job Preferences</h3>
+          <p className="text-xs text-slate-500 mb-4">Used to personalise your &ldquo;Jobs For You&rdquo; tab.</p>
+
+          {/* Location type */}
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">Work type preference</label>
+            <div className="flex flex-wrap gap-2">
+              {LOCATION_TYPE_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setPrefs(p => ({ ...p, preferredLocationType: opt.value }))}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    prefs.preferredLocationType === opt.value
+                      ? 'bg-rp-accent text-white border-rp-accent'
+                      : 'border-[#E5E7EB] text-slate-600 hover:border-slate-400'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* City (only for hybrid/onsite) */}
+          {(prefs.preferredLocationType === 'hybrid' || prefs.preferredLocationType === 'onsite') && (
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Preferred city</label>
+              <input
+                type="text"
+                value={prefs.preferredLocationCity}
+                onChange={e => setPrefs(p => ({ ...p, preferredLocationCity: e.target.value }))}
+                placeholder="e.g. London, New York"
+                className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-rp-text-1 focus:outline-none focus:border-rp-accent"
+              />
+            </div>
+          )}
+
+          {/* Salary range */}
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">Desired salary range (optional)</label>
+            <div className="flex items-center gap-2">
+              <select
+                value={prefs.salaryCurrency}
+                onChange={e => setPrefs(p => ({ ...p, salaryCurrency: e.target.value }))}
+                className="border border-[#E5E7EB] rounded-lg px-2 py-2 text-sm text-rp-text-1 focus:outline-none focus:border-rp-accent"
+              >
+                {CURRENCY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <input
+                type="number"
+                value={prefs.salaryMin}
+                onChange={e => setPrefs(p => ({ ...p, salaryMin: e.target.value }))}
+                placeholder="Min (e.g. 60000)"
+                className="flex-1 border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-rp-text-1 focus:outline-none focus:border-rp-accent"
+              />
+              <span className="text-xs text-slate-400">–</span>
+              <input
+                type="number"
+                value={prefs.salaryMax}
+                onChange={e => setPrefs(p => ({ ...p, salaryMax: e.target.value }))}
+                placeholder="Max (e.g. 80000)"
+                className="flex-1 border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-rp-text-1 focus:outline-none focus:border-rp-accent"
+              />
+            </div>
+          </div>
+
+          {/* Open to contract */}
+          <div className="mb-5">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={prefs.openToContract}
+                onChange={e => setPrefs(p => ({ ...p, openToContract: e.target.checked }))}
+                className="rounded border-slate-300 text-rp-accent focus:ring-rp-accent"
+              />
+              <span className="text-xs text-slate-600">Open to contract / freelance roles</span>
+            </label>
+          </div>
+
+          <button
+            onClick={savePreferences}
+            disabled={prefsSaving}
+            className="px-4 py-2 rounded-full bg-rp-accent text-white text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {prefsSaving ? 'Saving…' : 'Save preferences'}
+          </button>
+
+          {prefsMessage && (
+            <p className={`text-xs mt-3 ${prefsMessage.includes('saved') ? 'text-green-600' : 'text-red-500'}`}>
+              {prefsMessage}
+            </p>
+          )}
         </div>
 
         {/* Navigation links */}
