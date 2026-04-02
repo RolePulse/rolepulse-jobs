@@ -65,27 +65,6 @@ const BUNDLES = [
   { name: '5-Listing Bundle', price: '$899', priceId: 'price_1TEuR6RsDnlecpjiVLJRbW5c', description: '5 Standard listings. Biggest saving per role.' },
 ]
 
-{/* TODO: Replace placeholder quotes with real testimonials from James */}
-const TESTIMONIALS = [
-  {
-    quote: "We hired our first AE through RolePulse in under two weeks. The quality of applicants was genuinely impressive.",
-    name: "[Name]",
-    title: "Head of Sales",
-    company: "[Company]",
-  },
-  {
-    quote: "The newsletter slot was worth every penny. We had 40+ applications in 48 hours.",
-    name: "[Name]",
-    title: "VP Talent",
-    company: "[Company]",
-  },
-  {
-    quote: "Finally a job board that actually understands GTM hiring. Not noise — real candidates.",
-    name: "[Name]",
-    title: "CRO",
-    company: "[Company]",
-  },
-]
 
 const FAQ = [
   {
@@ -236,26 +215,6 @@ export default function PostAJobPage() {
             Goes live within 24 hours · Secure checkout via Stripe · Questions?{' '}
             <a href="mailto:hello@rolepulse.com" className="underline">Email hello@rolepulse.com</a>
           </p>
-        </div>
-
-        {/* Testimonials */}
-        <div className="mt-16">
-          <h2 className="text-2xl font-semibold text-rp-text-1 mb-8 text-center">What hiring managers say</h2>
-          {/* TODO: Replace placeholder quotes with real testimonials from James */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t) => (
-              <div
-                key={t.name + t.title}
-                className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-2xl p-6 flex flex-col gap-4"
-              >
-                <p className="text-base italic text-rp-text-2 flex-1">&ldquo;{t.quote}&rdquo;</p>
-                <div>
-                  <p className="font-bold text-rp-text-1 text-sm">{t.name}</p>
-                  <p className="text-xs text-rp-text-3">{t.title}, {t.company}</p>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* FAQ */}
