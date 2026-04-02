@@ -35,66 +35,22 @@ function NewEmployerForm() {
     setError(null)
     setLoading(true)
 
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      router.push('/sign-up')
-      return
-    }
+    const res = await fetch('/api/employer/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyName, website, billingEmail }),
+    })
 
-    // Create or find company
-    const slug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    
-    let companyId: string
+    const data = await res.json()
 
-    const { data: existingCompany } = await supabase
-      .from('companies')
-      .select('id')
-      .eq('slug', slug)
-      .single()
-
-    if (existingCompany) {
-      companyId = existingCompany.id
-    } else {
-      const { data: newCompany, error: companyError } = await supabase
-        .from('companies')
-        .insert({
-          name: companyName,
-          slug,
-          website,
-          is_employer: true,
-          ats_provider: 'employer',
-        })
-        .select('id')
-        .single()
-
-      if (companyError || !newCompany) {
-        setError(companyError?.message || 'Failed to create company')
-        setLoading(false)
-        return
-      }
-      companyId = newCompany.id
-    }
-
-    // Create employer record
-    const { data: employer, error: employerError } = await supabase
-      .from('employers')
-      .upsert({
-        company_id: companyId,
-        user_id: user.id,
-        billing_email: billingEmail,
-      }, { onConflict: 'user_id' })
-      .select('id')
-      .single()
-
-    if (employerError || !employer) {
-      setError(employerError?.message || 'Failed to create employer account')
+    if (!res.ok) {
+      setError(data.error || 'Failed to create employer account')
       setLoading(false)
       return
     }
 
     // Go to post form
-    router.push(`/employers/post?employer_id=${employer.id}&company_id=${companyId}&price_id=${priceId}&tier=${tier}`)
+    router.push(`/employers/post?employer_id=${data.employer_id}&company_id=${data.company_id}&price_id=${priceId}&tier=${tier}`)
   }
 
   return (
