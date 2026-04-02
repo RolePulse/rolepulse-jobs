@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
-import Image from 'next/image'
 import Link from 'next/link'
 import DOMPurify from 'isomorphic-dompurify'
 import { SaveJobButton } from '@/components/SaveJobButton'
+import { CompanyLogo } from '@/components/CompanyLogo'
 
 // ── CV Scorer component ───────────────────────────────────────────────────────
 interface ScoreResult {
@@ -342,71 +342,6 @@ function getCompanyDescription(name: string): string | null {
   return null
 }
 
-// ── Deterministic colour fallback ─────────────────────────────────────────────
-function companyColour(name: string): string {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const hue = Math.abs(hash) % 360
-  return `hsl(${hue}, 55%, 45%)`
-}
-
-// ── Resolve blurry gstatic favicon URLs to high-res Clearbit logos ───────────
-function resolveLogoUrl(src: string): string {
-  try {
-    const u = new URL(src)
-    if (u.hostname === 't2.gstatic.com' || u.hostname.endsWith('.gstatic.com')) {
-      const rawUrl = u.searchParams.get('url')
-      if (rawUrl) {
-        const domain = new URL(rawUrl).hostname
-        if (domain) return `https://logo.clearbit.com/${domain}?size=128`
-      }
-    }
-  } catch {
-    // non-parseable src — return as-is
-  }
-  return src
-}
-
-// ── Company logo ──────────────────────────────────────────────────────────────
-function CompanyLogo({ name, logoUrl, size = 48 }: { name: string; logoUrl?: string; size?: number }) {
-  const resolved = logoUrl ? resolveLogoUrl(logoUrl) : undefined
-  const [imgError, setImgError] = useState(false)
-  const [triedClearbit, setTriedClearbit] = useState(false)
-  const [fallbackSrc, setFallbackSrc] = useState<string | undefined>(undefined)
-
-  const currentSrc = fallbackSrc ?? resolved
-
-  if (currentSrc && !imgError) {
-    return (
-      <Image
-        src={currentSrc}
-        alt={name}
-        width={size}
-        height={size}
-        className="rounded-xl flex-shrink-0 object-contain"
-        onError={() => {
-          if (!triedClearbit && logoUrl && resolved !== logoUrl) {
-            setTriedClearbit(true)
-            setFallbackSrc(logoUrl)
-          } else {
-            setImgError(true)
-          }
-        }}
-      />
-    )
-  }
-  return (
-    <div
-      className="rounded-xl flex-shrink-0 flex items-center justify-center text-white font-semibold"
-      style={{ width: size, height: size, backgroundColor: companyColour(name), fontSize: size * 0.42 }}
-    >
-      {name.charAt(0).toUpperCase()}
-    </div>
-  )
-}
-
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function JobPageSkeleton() {
   return (
@@ -504,7 +439,7 @@ function RelatedJobCard({ job }: { job: any }) {
       href={`/jobs/${job.slug}`}
       className="group flex items-center gap-4 p-4 rounded-xl border border-[#E5E7EB] hover:border-rp-accent hover:shadow-md transition-all duration-200 hover:-translate-y-[3px]"
     >
-      <CompanyLogo name={job.company_name || '?'} logoUrl={job.company_logo} size={36} />
+      <CompanyLogo name={job.company_name || '?'} src={job.company_logo} size={36} useHashColour />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-rp-text-1 truncate text-sm">{job.title}</p>
         <p className="text-xs text-rp-text-3 mt-0.5">
@@ -657,7 +592,7 @@ export default function JobPage() {
 
         {/* ── Page header (logo + title + pills) ── */}
         <div className="flex items-start gap-5 mb-8">
-          <CompanyLogo name={company?.name || '?'} logoUrl={company?.logo_url} size={56} />
+          <CompanyLogo name={company?.name || '?'} src={company?.logo_url} size={56} useHashColour className="rounded-xl" />
           <div>
             <p className="text-sm font-medium text-rp-text-2 mb-1">{company?.name}</p>
             <h1 className="text-[36px] font-bold text-rp-text-1 leading-tight mb-3">{job.title}</h1>
