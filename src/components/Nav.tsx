@@ -43,20 +43,10 @@ export function Nav() {
   return (
     <nav className="bg-rp-black border-b border-white/10 sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-8 h-14 flex items-center justify-between">
-        {/* Logo — icon-only waveform with orange accent diagonal */}
+        {/* Logo — RolePulse brand asset */}
         <Link href="/" className="flex items-center hover:opacity-80 transition-opacity" aria-label="RolePulse">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            {/* Smooth sine waveform */}
-            <path
-              d="M1 16 C4 16, 5 8, 8 8 S11 24, 14 24 S17 8, 20 8 S23 24, 26 24 S29 16, 31 16"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            {/* Orange diagonal accent line cutting through the middle */}
-            <line x1="4" y1="26" x2="28" y2="6" stroke="#FF6B00" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/rolepulse-logo-white.png" alt="RolePulse" width={32} height={32} className="w-8 h-8 object-contain" />
         </Link>
 
         {/* Desktop nav */}
