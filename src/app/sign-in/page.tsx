@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
@@ -16,22 +16,23 @@ function GoogleIcon() {
   )
 }
 
-export default function SignInPage() {
+function SignInForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get('redirect') || '/jobs'
 
   async function handleGoogleSignIn() {
     setGoogleLoading(true)
     const supabase = createClient()
-    // TODO: add Google OAuth credentials in Supabase dashboard → Authentication → Providers → Google
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
       },
     })
     if (error) {
@@ -54,7 +55,8 @@ export default function SignInPage() {
       return
     }
 
-    router.push('/jobs')
+    const safeRedirect = redirect.startsWith('/') ? redirect : '/jobs'
+    router.push(safeRedirect)
   }
 
   return (
@@ -128,11 +130,19 @@ export default function SignInPage() {
 
         <p className="mt-6 text-sm text-rp-text-3 text-center">
           Don&apos;t have an account?{' '}
-          <Link href="/sign-up" className="text-rp-accent hover:underline">
+          <Link href={`/sign-up?redirect=${encodeURIComponent(redirect)}`} className="text-rp-accent hover:underline">
             Sign up
           </Link>
         </p>
       </div>
     </div>
+  )
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-rp-white" />}>
+      <SignInForm />
+    </Suspense>
   )
 }
