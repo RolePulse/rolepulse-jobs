@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { JobRow } from '@/components/JobRow'
+import { JobRow, type MatchScoreState } from '@/components/JobRow'
 import { JobRowSkeleton } from '@/components/JobRowSkeleton'
 
 const PAGE_SIZE = 50
@@ -91,6 +91,72 @@ interface Job {
   posted_at: string
   company_name: string
   company_logo: string | null
+  description: string | null
+}
+
+const CV_SCORE_SESSION_PREFIX = 'rp_cv_score_'
+const CV_SCORE_TTL_MS = 24 * 60 * 60 * 1000
+
+function getSessionScore(jobId: string): number | null {
+  try {
+    const raw = sessionStorage.getItem(`${CV_SCORE_SESSION_PREFIX}${jobId}`)
+    if (!raw) return null
+    const { score, ts } = JSON.parse(raw)
+    if (Date.now() - ts > CV_SCORE_TTL_MS) {
+      sessionStorage.removeItem(`${CV_SCORE_SESSION_PREFIX}${jobId}`)
+      return null
+    }
+    return score as number
+  } catch {
+    return null
+  }
+}
+
+function setSessionScore(jobId: string, score: number) {
+  try {
+    sessionStorage.setItem(`${CV_SCORE_SESSION_PREFIX}${jobId}`, JSON.stringify({ score, ts: Date.now() }))
+  } catch {
+    // sessionStorage unavailable
+  }
+}
+
+const BATCH_SIZE = 5
+
+async function scoreBatch(
+  jobs: Job[],
+  cvText: string,
+  onScore: (jobId: string, score: number) => void
+) {
+  for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
+    const batch = jobs.slice(i, i + BATCH_SIZE)
+    await Promise.all(
+      batch.map(async (job) => {
+        const cached = getSessionScore(job.id)
+        if (cached !== null) {
+          onScore(job.id, cached)
+          return
+        }
+        const jdText = (job.description || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+        if (!jdText || jdText.length < 50) return
+        try {
+          const res = await fetch('https://www.cvpulse.io/api/public/jd-score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cvText, jdText, roleHint: job.role_type }),
+          })
+          if (!res.ok) return
+          const data = await res.json()
+          const score = typeof data.score === 'number' ? data.score : null
+          if (score !== null) {
+            setSessionScore(job.id, score)
+            onScore(job.id, score)
+          }
+        } catch {
+          // Silently skip failed scores — never break the listing
+        }
+      })
+    )
+  }
 }
 
 function diversify(jobs: Job[]): Job[] {
@@ -126,6 +192,8 @@ function JobsList() {
   const [total, setTotal] = useState(0)
   const [searchInput, setSearchInput] = useState(searchParams.get('q') || '')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [matchScores, setMatchScores] = useState<Record<string, MatchScoreState>>({})
+  const scoringRef = useRef(false)
 
   const selectedRole = searchParams.get('role')
   const selectedCompany = searchParams.get('company')
@@ -180,7 +248,7 @@ function JobsList() {
 
       let query = supabase
         .from('jobs')
-        .select('id, title, slug, location, remote, role_type, posted_at, companies(name, logo_url)', { count: 'exact' })
+        .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url)', { count: 'exact' })
         .eq('status', 'active')
         .order('posted_at', { ascending: false })
         .range(from, to)
@@ -224,6 +292,7 @@ function JobsList() {
         ...j,
         company_name: j.companies?.name || '',
         company_logo: j.companies?.logo_url || null,
+        description: j.description || null,
       }))
 
       // Deduplicate by slug
@@ -235,11 +304,66 @@ function JobsList() {
       })
 
       // Company diversity — max 3 consecutive same company
-      setJobs(diversify(dedupedJobs))
+      const finalJobs = diversify(dedupedJobs)
+      setJobs(finalJobs)
       setLoading(false)
+
+      // Pre-populate scores from sessionStorage (instant, no API call)
+      const cachedScores: Record<string, MatchScoreState> = {}
+      for (const job of finalJobs) {
+        const cached = getSessionScore(job.id)
+        if (cached !== null) cachedScores[job.id] = cached
+      }
+      if (Object.keys(cachedScores).length > 0) {
+        setMatchScores(prev => ({ ...prev, ...cachedScores }))
+      }
     }
 
     fetchData()
+  }, [selectedRole, selectedCompany, selectedLocation, q, page])
+
+  // Trigger batch scoring once jobs are loaded and we have a saved CV
+  useEffect(() => {
+    if (loading || jobs.length === 0 || scoringRef.current) return
+
+    async function startScoring() {
+      try {
+        const res = await fetch('/api/cv/saved')
+        if (!res.ok) return
+        const { hasCv, cvText } = await res.json()
+        if (!hasCv || !cvText) return
+
+        scoringRef.current = true
+
+        // Mark all unscored jobs as loading
+        setMatchScores(prev => {
+          const next = { ...prev }
+          for (const job of jobs) {
+            if (next[job.id] === undefined || next[job.id] === null) {
+              next[job.id] = 'loading'
+            }
+          }
+          return next
+        })
+
+        await scoreBatch(jobs, cvText, (jobId, score) => {
+          setMatchScores(prev => ({ ...prev, [jobId]: score }))
+        })
+      } catch {
+        // Silently fail — badges just won't show
+      } finally {
+        scoringRef.current = false
+      }
+    }
+
+    startScoring()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, jobs])
+
+  // Reset scoring state when jobs change (new page/filter)
+  useEffect(() => {
+    scoringRef.current = false
+    setMatchScores({})
   }, [selectedRole, selectedCompany, selectedLocation, q, page])
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
@@ -375,7 +499,12 @@ function JobsList() {
           </div>
         ) : (
           jobs.map((job: Job) => (
-            <JobRow key={job.id} job={job} companyLogo={job.company_logo ?? undefined} />
+            <JobRow
+              key={job.id}
+              job={job}
+              companyLogo={job.company_logo ?? undefined}
+              matchScore={matchScores[job.id] ?? undefined}
+            />
           ))
         )}
 

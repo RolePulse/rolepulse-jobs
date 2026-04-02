@@ -9,7 +9,42 @@ function truncateLocation(loc: string | null | undefined): string {
   return loc.slice(0, 25) + '…'
 }
 
-export function JobRow({ job, companyLogo }: { job: any; companyLogo?: string }) {
+export type MatchScoreState = number | 'loading' | null
+
+function MatchBadge({ score }: { score: MatchScoreState }) {
+  if (score === 'loading') {
+    return (
+      <span className="hidden sm:flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border border-slate-200 text-slate-400 bg-slate-50 whitespace-nowrap">
+        <span className="w-2 h-2 rounded-full border border-slate-300 border-t-transparent animate-spin inline-block" />
+        Matching…
+      </span>
+    )
+  }
+  if (score === null || score === undefined || score < 40) return null
+
+  if (score >= 80) {
+    return (
+      <span className="hidden sm:inline-flex items-center text-xs px-2.5 py-0.5 rounded-full border border-green-200 text-green-700 bg-green-50 font-medium whitespace-nowrap">
+        Strong match
+      </span>
+    )
+  }
+  if (score >= 60) {
+    return (
+      <span className="hidden sm:inline-flex items-center text-xs px-2.5 py-0.5 rounded-full border border-amber-200 text-amber-700 bg-amber-50 font-medium whitespace-nowrap">
+        Good match
+      </span>
+    )
+  }
+  // 40–59
+  return (
+    <span className="hidden sm:inline-flex items-center text-xs px-2.5 py-0.5 rounded-full border border-slate-200 text-slate-500 bg-slate-50 font-medium whitespace-nowrap">
+      Partial match
+    </span>
+  )
+}
+
+export function JobRow({ job, companyLogo, matchScore }: { job: any; companyLogo?: string; matchScore?: MatchScoreState }) {
   return (
     <Link href={`/jobs/${job.slug}`} className="block cursor-pointer">
       <div className="flex items-center justify-between px-0 py-4 border-b border-rp-border hover:bg-[#F9FAFB] transition-colors duration-[120ms] min-h-[72px]">
@@ -26,7 +61,10 @@ export function JobRow({ job, companyLogo }: { job: any; companyLogo?: string })
           </div>
         </div>
 
-        <div className="flex items-center gap-4 flex-shrink-0 ml-3">
+        <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+          {matchScore !== undefined && matchScore !== null && (
+            <MatchBadge score={matchScore} />
+          )}
           {job.location && (
             <span className="hidden sm:block text-sm text-rp-text-3 max-w-[160px] truncate">
               {truncateLocation(job.location)}
