@@ -30,6 +30,9 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
   const [file, setFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const cvTextRef = useRef<string>('')
+  // Ref mirrors isLoggedIn so async closures (scoreWithText, handleFile) always
+  // read the current auth state rather than a stale captured value.
+  const isLoggedInRef = useRef(false)
   // Always hold the latest jobDescription so async closures don't capture a stale empty value
   const jobDescriptionRef = useRef<string>(jobDescription)
   useEffect(() => { jobDescriptionRef.current = jobDescription }, [jobDescription])
@@ -55,7 +58,10 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
 
         // Always set isLoggedIn from isAuthenticated, not from hasCv.
         // A logged-in user with no saved CV should still see the "auto-save" path.
-        if (isAuthenticated) setIsLoggedIn(true)
+        if (isAuthenticated) {
+          setIsLoggedIn(true)
+          isLoggedInRef.current = true
+        }
 
         if (hasCv && cvText) {
           setSavedCvInfo({ filename: cvFilename, uploadedAt: cvUploadedAt })
@@ -85,9 +91,6 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
           // scoreWithText will set 'scoring' itself — just call it if not already busy
           await scoreWithText(cvText)
         } else {
-          if (hasCv === false && res.status === 200) {
-            setIsLoggedIn(false)
-          }
           // Don't override active upload states
           setState(prev => (['checking', 'idle', 'error'].includes(prev) ? 'idle' : prev))
         }
@@ -122,8 +125,8 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
       setResult(data)
       setState('done')
 
-      // Save to cache if logged in
-      if (isLoggedIn) {
+      // Save to cache if logged in (use ref to avoid stale closure)
+      if (isLoggedInRef.current) {
         await saveToCache(data)
       }
     } catch (err: unknown) {
@@ -177,7 +180,8 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
       await scoreWithText(text)
 
       // If the user is logged in but had no saved CV, auto-save now — no re-auth needed
-      if (isLoggedIn && !savedCvInfo) {
+      // Use isLoggedInRef to avoid reading a stale closure value
+      if (isLoggedInRef.current && !savedCvInfo) {
         try {
           await fetch('/api/cv/save', {
             method: 'POST',
