@@ -188,15 +188,7 @@ export function CvPulseScorerPanel({ jobTitle, jobDescription, roleType }: Props
             </div>
           )}
 
-          {/* CTA to CV Pulse */}
-          <a
-            href="https://www.cvpulse.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-4 block w-full text-center text-xs font-semibold text-[#F97316] border border-[#F97316] rounded-lg py-2 hover:bg-orange-50 transition-colors"
-          >
-            Get a full CV score on CV Pulse →
-          </a>
+
         </div>
       </div>
     )
