@@ -13,6 +13,19 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      // Check if this is a new user (no job_seeker_profiles record or onboarding not completed)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('job_seeker_profiles')
+          .select('onboarding_completed')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (!profile || !profile.onboarding_completed) {
+          return NextResponse.redirect(`${origin}/onboarding`)
+        }
+      }
       return NextResponse.redirect(`${origin}${safeRedirect}`)
     }
   }

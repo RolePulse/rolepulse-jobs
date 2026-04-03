@@ -83,8 +83,9 @@ function SignUpForm() {
       return
     }
 
-    const cvReturnUrl = await handleStagedCv()
-    router.push(cvReturnUrl || redirect)
+    await handleStagedCv()
+    // New sign-ups go through onboarding
+    router.push('/onboarding')
   }
 
   return (

@@ -187,7 +187,26 @@ export default function ProfilePage() {
           <span className="text-rp-text-2">My Profile</span>
         </nav>
 
-        <h1 className="text-2xl font-bold text-rp-text-1 mb-8">My Profile</h1>
+        <h1 className="text-2xl font-bold text-rp-text-1 mb-6">My Profile</h1>
+
+        {/* Complete your profile prompt */}
+        {!loading && (!hasCv || prefs.preferredLocationType === 'open' && !prefs.preferredLocationCity && !prefs.salaryMin && !prefs.salaryMax) && (
+          <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-start gap-3">
+            <span className="text-xl mt-0.5">🎯</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-rp-text-1">Complete your profile</p>
+              <p className="text-xs text-rp-text-2 mt-0.5">
+                Add your CV and job preferences to get better role matches.
+              </p>
+            </div>
+            <Link
+              href="/onboarding"
+              className="text-xs font-semibold text-rp-accent hover:text-rp-accent-dk transition-colors whitespace-nowrap"
+            >
+              Set up →
+            </Link>
+          </div>
+        )}
 
         {/* My CV section */}
         <div className="border border-[#E5E7EB] rounded-xl p-5 mb-6">
