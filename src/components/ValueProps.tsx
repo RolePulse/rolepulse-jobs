@@ -3,29 +3,12 @@
 import { useState, useEffect } from 'react'
 import { Zap, RotateCcw, Rocket } from 'lucide-react'
 
-const VALUE_PROPS = [
-  {
-    title: 'GTM roles only',
-    stat: '724 active roles',
-    description: 'No engineering roles. No HR. Just AE, SDR, CSM, RevOps, and Marketing.',
-    icon: Zap,
-  },
-  {
-    title: 'Live ATS feeds',
-    stat: '200+ companies',
-    description: 'Connected directly to Greenhouse, Ashby and Lever. Roles go live within hours, not days.',
-    icon: RotateCcw,
-  },
-  {
-    title: 'Built for what comes next',
-    stat: 'Updated daily',
-    description:
-      'CV matching, salary data, and alerts are coming. RolePulse is becoming the operating system for GTM careers.',
-    icon: Rocket,
-  },
-]
+interface ValuePropsProps {
+  roleCount?: number
+  companyCount?: number
+}
 
-export function ValueProps() {
+export function ValueProps({ roleCount, companyCount }: ValuePropsProps) {
   const [isVisible, setIsVisible] = useState(true)
 
   useEffect(() => {
@@ -44,6 +27,36 @@ export function ValueProps() {
 
     return () => observer.disconnect()
   }, [])
+
+  const roleCountLabel = roleCount
+    ? `${roleCount.toLocaleString()} active roles`
+    : '724 active roles'
+
+  const companyCountLabel = companyCount
+    ? `${companyCount.toLocaleString()}+ companies`
+    : '200+ companies'
+
+  const VALUE_PROPS = [
+    {
+      title: 'GTM roles only',
+      stat: roleCountLabel,
+      description: 'No engineering roles. No HR. Just AE, SDR, CSM, RevOps, and Marketing.',
+      icon: Zap,
+    },
+    {
+      title: 'Live ATS feeds',
+      stat: companyCountLabel,
+      description: 'Connected directly to Greenhouse, Ashby and Lever. Roles go live within hours, not days.',
+      icon: RotateCcw,
+    },
+    {
+      title: 'Built for what comes next',
+      stat: 'Updated daily',
+      description:
+        'CV matching, salary data, and alerts are coming. RolePulse is becoming the operating system for GTM careers.',
+      icon: Rocket,
+    },
+  ]
 
   return (
     <div className="bg-[#F9FAFB] px-6 md:px-8 py-16 md:py-24" id="value-props">

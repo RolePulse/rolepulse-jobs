@@ -36,6 +36,18 @@ async function getRoleCount(): Promise<number> {
   }
 }
 
+async function getCompanyCount(): Promise<number> {
+  try {
+    const supabase = getSupabase()
+    const { count } = await supabase
+      .from('companies')
+      .select('*', { count: 'exact', head: true })
+    return count || 0
+  } catch {
+    return 200
+  }
+}
+
 async function getFeaturedJobs() {
   try {
     const supabase = getSupabase()
@@ -81,13 +93,13 @@ async function getFeaturedJobs() {
 }
 
 export default async function HomePage() {
-  const [roleCount, jobs] = await Promise.all([getRoleCount(), getFeaturedJobs()])
+  const [roleCount, companyCount, jobs] = await Promise.all([getRoleCount(), getCompanyCount(), getFeaturedJobs()])
 
   return (
     <main className="min-h-screen bg-white">
       <HomeHero roleCount={roleCount} />
       <LogosStrip />
-      <ValueProps />
+      <ValueProps roleCount={roleCount} companyCount={companyCount} />
       <FeaturedRoles jobs={jobs} />
       <NewsletterCTA />
       <CVPulseTeaser />
