@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 import { JobRow, type MatchScoreState } from '@/components/JobRow'
 import { JobRowSkeleton } from '@/components/JobRowSkeleton'
 import { compositeScore, locationScore, salaryScore, type JobPreferences, type JobForScoring } from '@/lib/matchScoring'
+import { formatSalary } from '@/lib/salary'
 
 const PAGE_SIZE = 50
 
@@ -24,12 +25,14 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
   const q = searchParams.get('q') || ''
   const company = searchParams.get('company') || ''
   const location = searchParams.get('location') || ''
+  const salary = searchParams.get('salary') || ''
 
   let href = role === 'all' ? '/jobs' : `/jobs?role=${role}`
   const extras: string[] = []
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
   if (location) extras.push(`location=${encodeURIComponent(location)}`)
+  if (salary) extras.push(`salary=${encodeURIComponent(salary)}`)
   if (extras.length) href += (href.includes('?') ? '&' : '?') + extras.join('&')
 
   return (
@@ -59,6 +62,7 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
   const q = searchParams.get('q') || ''
   const role = searchParams.get('role') || ''
   const company = searchParams.get('company') || ''
+  const salary = searchParams.get('salary') || ''
 
   let href = '/jobs'
   const extras: string[] = []
@@ -66,6 +70,7 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
   if (loc.value) extras.push(`location=${encodeURIComponent(loc.value)}`)
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
+  if (salary) extras.push(`salary=${encodeURIComponent(salary)}`)
   if (extras.length) href += '?' + extras.join('&')
 
   return (
@@ -78,6 +83,36 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
       }`}
     >
       {loc.label}
+    </a>
+  )
+}
+
+function SalaryPill({ option, selected }: { option: { label: string; value: string }; selected: boolean }) {
+  const searchParams = useSearchParams()
+  const q = searchParams.get('q') || ''
+  const role = searchParams.get('role') || ''
+  const company = searchParams.get('company') || ''
+  const location = searchParams.get('location') || ''
+
+  let href = '/jobs'
+  const extras: string[] = []
+  if (role) extras.push(`role=${encodeURIComponent(role)}`)
+  if (location) extras.push(`location=${encodeURIComponent(location)}`)
+  if (q) extras.push(`q=${encodeURIComponent(q)}`)
+  if (company) extras.push(`company=${encodeURIComponent(company)}`)
+  if (option.value) extras.push(`salary=${encodeURIComponent(option.value)}`)
+  if (extras.length) href += '?' + extras.join('&')
+
+  return (
+    <a
+      href={href}
+      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+        selected
+          ? 'bg-rp-accent text-white'
+          : 'border border-[#E5E7EB] text-slate-600 hover:border-slate-400'
+      }`}
+    >
+      {option.label}
     </a>
   )
 }
@@ -95,7 +130,18 @@ interface Job {
   description: string | null
   salary_min?: number | null
   salary_max?: number | null
+  salary_currency?: string | null
+  salary_is_ote?: boolean | null
 }
+
+const SALARY_FILTERS = [
+  { label: 'Any salary', value: '' },
+  { label: '£40K+', value: '40000' },
+  { label: '£60K+', value: '60000' },
+  { label: '£80K+', value: '80000' },
+  { label: '£100K+', value: '100000' },
+  { label: '£120K+', value: '120000' },
+]
 
 const CV_SCORE_SESSION_PREFIX = 'rp_cv_score_'
 const CV_SCORE_TTL_MS = 24 * 60 * 60 * 1000
@@ -305,6 +351,7 @@ function JobsList() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [matchScores, setMatchScores] = useState<Record<string, MatchScoreState>>({})
   const scoringRef = useRef(false)
+  const [hasSalaryData, setHasSalaryData] = useState(false)
 
   // Jobs For You state
   const [activeTab, setActiveTab] = useState<'all' | 'for-you'>('all')
@@ -320,6 +367,7 @@ function JobsList() {
   const selectedRole = searchParams.get('role')
   const selectedCompany = searchParams.get('company')
   const selectedLocation = searchParams.get('location') || ''
+  const selectedSalary = searchParams.get('salary') || ''
   const q = searchParams.get('q') || ''
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
 
@@ -366,6 +414,7 @@ function JobsList() {
       if (selectedRole) params.set('role', selectedRole)
       if (selectedCompany) params.set('company', selectedCompany)
       if (selectedLocation) params.set('location', selectedLocation)
+      if (selectedSalary) params.set('salary', selectedSalary)
       if (value) params.set('q', value)
       router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
     }, 300)
@@ -378,6 +427,7 @@ function JobsList() {
     if (selectedRole) params.set('role', selectedRole)
     if (selectedCompany) params.set('company', selectedCompany)
     if (selectedLocation) params.set('location', selectedLocation)
+    if (selectedSalary) params.set('salary', selectedSalary)
     router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
   }
 
@@ -386,6 +436,7 @@ function JobsList() {
     if (selectedRole) params.set('role', selectedRole)
     if (selectedCompany) params.set('company', selectedCompany)
     if (selectedLocation) params.set('location', selectedLocation)
+    if (selectedSalary) params.set('salary', selectedSalary)
     if (q) params.set('q', q)
     if (newPage > 1) params.set('page', String(newPage))
     router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
@@ -401,7 +452,7 @@ function JobsList() {
 
       let query = supabase
         .from('jobs')
-        .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url)', { count: 'exact' })
+        .select('id, title, slug, location, remote, role_type, posted_at, description, salary_min, salary_max, salary_currency, salary_is_ote, companies(name, logo_url)', { count: 'exact' })
         .eq('status', 'active')
         .order('posted_at', { ascending: false })
         .range(from, to)
@@ -438,6 +489,13 @@ function JobsList() {
         query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`)
       }
 
+      if (selectedSalary) {
+        const salaryMin = parseInt(selectedSalary, 10)
+        if (!isNaN(salaryMin)) {
+          query = query.or(`salary_min.gte.${salaryMin},salary_max.gte.${salaryMin}`)
+        }
+      }
+
       const { data: jobData, count } = await query
       setTotal(count || 0)
 
@@ -446,6 +504,10 @@ function JobsList() {
         company_name: j.companies?.name || '',
         company_logo: j.companies?.logo_url || null,
         description: j.description || null,
+        salary_min: j.salary_min ?? null,
+        salary_max: j.salary_max ?? null,
+        salary_currency: j.salary_currency ?? null,
+        salary_is_ote: j.salary_is_ote ?? null,
       }))
 
       // Deduplicate by slug
@@ -460,6 +522,19 @@ function JobsList() {
       setJobs(finalJobs)
       setLoading(false)
 
+      // Check if any jobs have salary data (only check once on first load)
+      if (!selectedSalary) {
+        const supabaseForCount = getSupabase()
+        const { count: salaryCount } = await supabaseForCount
+          .from('jobs')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'active')
+          .not('salary_min', 'is', null)
+        setHasSalaryData((salaryCount || 0) > 0)
+      } else {
+        setHasSalaryData(true)
+      }
+
       // Pre-populate scores from sessionStorage
       const cachedScores: Record<string, MatchScoreState> = {}
       for (const job of finalJobs) {
@@ -472,7 +547,7 @@ function JobsList() {
     }
 
     fetchData()
-  }, [selectedRole, selectedCompany, selectedLocation, q, page])
+  }, [selectedRole, selectedCompany, selectedLocation, selectedSalary, q, page])
 
   // Batch scoring for All Jobs tab
   useEffect(() => {
@@ -515,7 +590,7 @@ function JobsList() {
   useEffect(() => {
     scoringRef.current = false
     setMatchScores({})
-  }, [selectedRole, selectedCompany, selectedLocation, q, page])
+  }, [selectedRole, selectedCompany, selectedLocation, selectedSalary, q, page])
 
   // "Jobs For You" tab: fetch all active jobs, score, rank
   useEffect(() => {
@@ -769,6 +844,22 @@ function JobsList() {
               </div>
             </div>
           </div>
+
+          {/* Salary filters — only shown when salary data exists */}
+          {hasSalaryData && (
+            <div className="border-b border-rp-border px-8 py-3">
+              <div className="max-w-4xl mx-auto">
+                <div className="relative after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none md:after:hidden">
+                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:flex-wrap items-center">
+                    <span className="text-xs text-slate-400 font-medium whitespace-nowrap mr-1">Salary</span>
+                    {SALARY_FILTERS.map((opt) => (
+                      <SalaryPill key={opt.value} option={opt} selected={selectedSalary === opt.value} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Company filter badge */}
           {selectedCompany && (

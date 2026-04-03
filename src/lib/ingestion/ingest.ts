@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { extractSalary } from '../salary'
 
 function getSupabase() {
   return createClient(
@@ -39,6 +40,9 @@ async function ingestGreenhouse(token: string, companyId: string): Promise<{ cou
       const roleType = classifyRole(job.title)
       if (!roleType) continue // skip non-GTM roles
       const slug = `${job.id}-${(job.title as string).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`
+      const description = (typeof job.content === 'string' ? job.content : job.content?.body || '')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, '\u00a0') || ''
+      const salary = extractSalary({ source: 'greenhouse', job, description })
       const { error } = await supabase
         .from('jobs')
         .upsert({
@@ -46,8 +50,7 @@ async function ingestGreenhouse(token: string, companyId: string): Promise<{ cou
           title: job.title,
           slug,
           // Greenhouse returns HTML-entity-encoded content (&lt;p&gt; etc.) — decode to real HTML
-          description: (typeof job.content === 'string' ? job.content : job.content?.body || '')
-            .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, '\u00a0') || '',
+          description,
           apply_url: job.absolute_url,
           source: 'greenhouse',
           external_id: String(job.id),
@@ -57,6 +60,10 @@ async function ingestGreenhouse(token: string, companyId: string): Promise<{ cou
           status: 'active',
           last_seen_at: new Date().toISOString(),
           expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          salary_min: salary.salary_min,
+          salary_max: salary.salary_max,
+          salary_currency: salary.salary_currency,
+          salary_is_ote: salary.salary_is_ote,
         }, { onConflict: 'source,external_id' })
       if (error) console.error(`  ✗ job upsert: ${error.message}`)
       else gtmCount++
@@ -90,13 +97,15 @@ async function ingestAshby(token: string, companyId: string): Promise<{ count: n
       const roleType = classifyRole(job.title)
       if (!roleType) continue // skip non-GTM roles
       const slug = `${job.id}-${(job.title as string).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`
+      const description = job.descriptionHtml || ''
+      const salary = extractSalary({ source: 'ashby', job, description })
       const { error } = await supabase
         .from('jobs')
         .upsert({
           company_id: companyId,
           title: job.title,
           slug,
-          description: job.descriptionHtml || '',
+          description,
           apply_url: job.applicationLink,
           source: 'ashby',
           external_id: job.id,
@@ -106,6 +115,10 @@ async function ingestAshby(token: string, companyId: string): Promise<{ count: n
           status: 'active',
           last_seen_at: new Date().toISOString(),
           expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          salary_min: salary.salary_min,
+          salary_max: salary.salary_max,
+          salary_currency: salary.salary_currency,
+          salary_is_ote: salary.salary_is_ote,
         }, { onConflict: 'source,external_id' })
       if (error) console.error(`  ✗ job upsert: ${error.message}`)
       else gtmCount++
@@ -130,13 +143,15 @@ async function ingestLever(token: string, companyId: string): Promise<{ count: n
       if (!roleType) continue // skip non-GTM roles
       const slug = `${job.id}-${(job.text as string).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`
       const location = job.categories?.location || job.categories?.allLocations?.[0] || ''
+      const description = job.descriptionPlain || job.description || ''
+      const salary = extractSalary({ source: 'lever', job, description })
       const { error } = await supabase
         .from('jobs')
         .upsert({
           company_id: companyId,
           title: job.text,
           slug,
-          description: job.descriptionPlain || job.description || '',
+          description,
           apply_url: job.applyUrl || job.hostedUrl,
           source: 'lever',
           external_id: job.id,
@@ -146,6 +161,10 @@ async function ingestLever(token: string, companyId: string): Promise<{ count: n
           status: 'active',
           last_seen_at: new Date(),
           expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          salary_min: salary.salary_min,
+          salary_max: salary.salary_max,
+          salary_currency: salary.salary_currency,
+          salary_is_ote: salary.salary_is_ote,
         }, { onConflict: 'source,external_id' })
       if (error) console.error(`Failed to upsert Lever job: ${error.message}`)
       else gtmCount++

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { CompanyLogo } from './CompanyLogo'
+import { formatSalary } from '@/lib/salary'
 
 function truncateLocation(loc: string | null | undefined): string {
   if (!loc) return ''
@@ -45,6 +46,8 @@ function MatchBadge({ score }: { score: MatchScoreState }) {
 }
 
 export function JobRow({ job, companyLogo, matchScore }: { job: any; companyLogo?: string; matchScore?: MatchScoreState }) {
+  const salaryLabel = formatSalary(job.salary_min, job.salary_max, job.salary_currency, job.salary_is_ote)
+
   return (
     <Link href={`/jobs/${job.slug}`} className="block cursor-pointer">
       <div className="flex items-center justify-between px-0 py-4 border-b border-rp-border hover:bg-[#F9FAFB] transition-colors duration-[120ms] min-h-[72px]">
@@ -57,7 +60,14 @@ export function JobRow({ job, companyLogo, matchScore }: { job: any; companyLogo
           />
           <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-rp-text-1 truncate">{job.title}</h3>
-            <p className="text-sm text-rp-text-2">{job.company_name}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-rp-text-2">{job.company_name}</p>
+              {salaryLabel && (
+                <span className="hidden sm:inline text-xs text-slate-500 font-medium bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 whitespace-nowrap">
+                  {salaryLabel}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
