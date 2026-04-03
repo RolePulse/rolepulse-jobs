@@ -1,7 +1,8 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="32" height="32" rx="4" fill="#111111"/>
-  <!-- Smooth sine waveform -->
-  <path d="M1 16 C4 16, 5 8, 8 8 S11 24, 14 24 S17 8, 20 8 S23 24, 26 24 S29 16, 31 16" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Orange diagonal accent line cutting through the middle -->
-  <line x1="4" y1="26" x2="28" y2="6" stroke="#FF6B00" stroke-width="2" stroke-linecap="round"/>
+  <!-- RolePulse brand favicon: dark square bg, white waveform, orange diagonal accent -->
+  <rect width="32" height="32" rx="4" fill="#0D1117"/>
+  <!-- Waveform path matching the brand logo asset -->
+  <path d="M2 16 L5 16 L6.5 12 L8 8 L9.5 12 L11 19 L12.5 24 L14 19 L15.5 12 L17 8 L18.5 12 L20 19 L21.5 24 L23 19 L24.5 12 L26 16 L30 16" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Orange diagonal accent -->
+  <line x1="12" y1="27" x2="20" y2="5" stroke="#FF6B00" stroke-width="2" stroke-linecap="round"/>
 </svg>

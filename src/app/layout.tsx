@@ -11,7 +11,12 @@ export const metadata: Metadata = {
     follow: true,
   },
   icons: {
-    icon: '/favicon.svg',
+    icon: [
+      { url: '/rolepulse-logo-dark.png', sizes: '32x32', type: 'image/png' },
+      { url: '/rolepulse-logo-dark.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: '/rolepulse-logo-dark.png',
+    shortcut: '/rolepulse-logo-dark.png',
   },
 };
 
