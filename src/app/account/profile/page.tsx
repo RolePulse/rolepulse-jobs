@@ -19,6 +19,16 @@ const LOCATION_TYPE_OPTIONS = [
 
 const CURRENCY_OPTIONS = ['GBP', 'USD', 'EUR']
 
+function getDefaultCurrency(): string {
+  if (typeof window === 'undefined') return 'USD'
+  try {
+    const lang = navigator.language ?? ''
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone ?? ''
+    if (lang === 'en-GB' || tz === 'Europe/London') return 'GBP'
+  } catch { /* ignore */ }
+  return 'USD'
+}
+
 interface Preferences {
   preferredLocationType: string
   preferredLocationCity: string
@@ -42,7 +52,7 @@ export default function ProfilePage() {
     preferredLocationCity: '',
     salaryMin: '',
     salaryMax: '',
-    salaryCurrency: 'GBP',
+    salaryCurrency: getDefaultCurrency(),
     openToContract: false,
   })
   const [prefsSaving, setPrefsSaving] = useState(false)
@@ -83,7 +93,7 @@ export default function ProfilePage() {
         preferredLocationCity: data.preferredLocationCity ?? '',
         salaryMin: data.salaryMin != null ? String(data.salaryMin) : '',
         salaryMax: data.salaryMax != null ? String(data.salaryMax) : '',
-        salaryCurrency: data.salaryCurrency ?? 'GBP',
+        salaryCurrency: data.salaryCurrency ?? getDefaultCurrency(),
         openToContract: data.openToContract ?? false,
       })
     } catch { /* ignore */ }
