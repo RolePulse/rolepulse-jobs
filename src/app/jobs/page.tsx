@@ -452,7 +452,7 @@ function JobsList() {
 
       let query = supabase
         .from('jobs')
-        .select('id, title, slug, location, remote, role_type, posted_at, description, salary_min, salary_max, salary_currency, salary_is_ote, companies(name, logo_url)', { count: 'exact' })
+        .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url)', { count: 'exact' })
         .eq('status', 'active')
         .order('posted_at', { ascending: false })
         .range(from, to)
@@ -489,12 +489,8 @@ function JobsList() {
         query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`)
       }
 
-      if (selectedSalary) {
-        const salaryMin = parseInt(selectedSalary, 10)
-        if (!isNaN(salaryMin)) {
-          query = query.or(`salary_min.gte.${salaryMin},salary_max.gte.${salaryMin}`)
-        }
-      }
+      // Salary filter disabled: salary columns not present in jobs schema
+      // if (selectedSalary) { ... }
 
       const { data: jobData, count } = await query
       setTotal(count || 0)
@@ -504,10 +500,10 @@ function JobsList() {
         company_name: j.companies?.name || '',
         company_logo: j.companies?.logo_url || null,
         description: j.description || null,
-        salary_min: j.salary_min ?? null,
-        salary_max: j.salary_max ?? null,
-        salary_currency: j.salary_currency ?? null,
-        salary_is_ote: j.salary_is_ote ?? null,
+        salary_min: null,
+        salary_max: null,
+        salary_currency: null,
+        salary_is_ote: null,
       }))
 
       // Deduplicate by slug
@@ -522,18 +518,8 @@ function JobsList() {
       setJobs(finalJobs)
       setLoading(false)
 
-      // Check if any jobs have salary data (only check once on first load)
-      if (!selectedSalary) {
-        const supabaseForCount = getSupabase()
-        const { count: salaryCount } = await supabaseForCount
-          .from('jobs')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'active')
-          .not('salary_min', 'is', null)
-        setHasSalaryData((salaryCount || 0) > 0)
-      } else {
-        setHasSalaryData(true)
-      }
+      // Salary columns don't exist in jobs schema — hide salary filters
+      setHasSalaryData(false)
 
       // Pre-populate scores from sessionStorage
       const cachedScores: Record<string, MatchScoreState> = {}
@@ -616,8 +602,10 @@ function JobsList() {
           company_name: j.companies?.name || '',
           company_logo: j.companies?.logo_url || null,
           description: j.description || null,
-          salary_min: j.salary_min ?? null,
-          salary_max: j.salary_max ?? null,
+          salary_min: null,
+          salary_max: null,
+          salary_currency: null,
+          salary_is_ote: null,
         }))
 
         // Deduplicate
