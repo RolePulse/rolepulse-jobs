@@ -40,9 +40,17 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
 
   // On mount / when jobId resolves: check if user has a saved CV.
   // Guard: never override an in-progress upload or a completed score.
+  // IMPORTANT: also depend on jobDescription so we wait for it to load before auto-scoring
   useEffect(() => {
     // Job data hasn't loaded yet — go straight to idle so the upload UI shows
     if (!jobId) {
+      setState(prev => (prev === 'checking' ? 'idle' : prev))
+      return
+    }
+
+    // Don't try to auto-score if the job description hasn't loaded yet
+    // (jobDescription comes from parent and is empty until fetchJob completes)
+    if (!jobDescription || jobDescription.length < 50) {
       setState(prev => (prev === 'checking' ? 'idle' : prev))
       return
     }
@@ -101,7 +109,7 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
     }
     checkSavedCv()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId])
+  }, [jobId, jobDescription])
 
   async function scoreWithText(cvText: string) {
     setState('scoring')
