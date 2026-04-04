@@ -57,6 +57,16 @@ const LOCATION_FILTERS = [
   { label: 'San Francisco', value: 'san-francisco' },
 ]
 
+const REMOTE_REGION_FILTERS = [
+  { label: 'All regions', value: '' },
+  { label: 'Worldwide', value: 'Worldwide' },
+  { label: 'UK', value: 'UK' },
+  { label: 'US', value: 'US' },
+  { label: 'Europe', value: 'Europe' },
+  { label: 'Canada', value: 'Canada' },
+  { label: 'APAC', value: 'APAC' },
+]
+
 function LocationPill({ loc, selected }: { loc: { label: string; value: string }; selected: boolean }) {
   const searchParams = useSearchParams()
   const q = searchParams.get('q') || ''
@@ -83,6 +93,38 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
       }`}
     >
       {loc.label}
+    </a>
+  )
+}
+
+function RemoteRegionPill({ region, selected }: { region: { label: string; value: string }; selected: boolean }) {
+  const searchParams = useSearchParams()
+  const q = searchParams.get('q') || ''
+  const role = searchParams.get('role') || ''
+  const company = searchParams.get('company') || ''
+  const salary = searchParams.get('salary') || ''
+
+  let href = '/jobs'
+  const extras: string[] = []
+  // Keep location=remote when filtering by region
+  extras.push('location=remote')
+  if (role) extras.push(`role=${encodeURIComponent(role)}`)
+  if (region.value) extras.push(`remote_region=${encodeURIComponent(region.value)}`)
+  if (q) extras.push(`q=${encodeURIComponent(q)}`)
+  if (company) extras.push(`company=${encodeURIComponent(company)}`)
+  if (salary) extras.push(`salary=${encodeURIComponent(salary)}`)
+  if (extras.length) href += '?' + extras.join('&')
+
+  return (
+    <a
+      href={href}
+      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+        selected
+          ? 'bg-rp-accent text-white'
+          : 'border border-[#E5E7EB] text-slate-600 hover:border-slate-400'
+      }`}
+    >
+      {region.label}
     </a>
   )
 }
@@ -123,6 +165,7 @@ interface Job {
   slug: string
   location: string | null
   remote: boolean
+  remote_regions: string[] | null
   role_type: string | null
   posted_at: string
   company_name: string
@@ -368,6 +411,7 @@ function JobsList() {
   const selectedCompany = searchParams.get('company')
   const selectedLocation = searchParams.get('location') || ''
   const selectedSalary = searchParams.get('salary') || ''
+  const selectedRemoteRegion = searchParams.get('remote_region') || ''
   const q = searchParams.get('q') || ''
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
 
@@ -415,6 +459,7 @@ function JobsList() {
       if (selectedCompany) params.set('company', selectedCompany)
       if (selectedLocation) params.set('location', selectedLocation)
       if (selectedSalary) params.set('salary', selectedSalary)
+      if (selectedRemoteRegion) params.set('remote_region', selectedRemoteRegion)
       if (value) params.set('q', value)
       router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
     }, 300)
@@ -428,6 +473,7 @@ function JobsList() {
     if (selectedCompany) params.set('company', selectedCompany)
     if (selectedLocation) params.set('location', selectedLocation)
     if (selectedSalary) params.set('salary', selectedSalary)
+    if (selectedRemoteRegion) params.set('remote_region', selectedRemoteRegion)
     router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
   }
 
@@ -437,6 +483,7 @@ function JobsList() {
     if (selectedCompany) params.set('company', selectedCompany)
     if (selectedLocation) params.set('location', selectedLocation)
     if (selectedSalary) params.set('salary', selectedSalary)
+    if (selectedRemoteRegion) params.set('remote_region', selectedRemoteRegion)
     if (q) params.set('q', q)
     if (newPage > 1) params.set('page', String(newPage))
     router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
@@ -452,7 +499,7 @@ function JobsList() {
 
       let query = supabase
         .from('jobs')
-        .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url)', { count: 'exact' })
+        .select('id, title, slug, location, remote, remote_regions, role_type, posted_at, description, companies(name, logo_url)', { count: 'exact' })
         .eq('status', 'active')
         .order('posted_at', { ascending: false })
         .range(from, to)
@@ -485,6 +532,11 @@ function JobsList() {
         }
       }
 
+      // Remote region filter: only jobs where remote_regions contains the selected region
+      if (selectedRemoteRegion) {
+        query = (query as any).contains('remote_regions', [selectedRemoteRegion])
+      }
+
       if (q) {
         query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`)
       }
@@ -500,6 +552,7 @@ function JobsList() {
         company_name: j.companies?.name || '',
         company_logo: j.companies?.logo_url || null,
         description: j.description || null,
+        remote_regions: j.remote_regions || null,
         salary_min: null,
         salary_max: null,
         salary_currency: null,
@@ -533,7 +586,7 @@ function JobsList() {
     }
 
     fetchData()
-  }, [selectedRole, selectedCompany, selectedLocation, selectedSalary, q, page])
+  }, [selectedRole, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page])
 
   // Batch scoring for All Jobs tab
   useEffect(() => {
@@ -576,7 +629,7 @@ function JobsList() {
   useEffect(() => {
     scoringRef.current = false
     setMatchScores({})
-  }, [selectedRole, selectedCompany, selectedLocation, selectedSalary, q, page])
+  }, [selectedRole, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page])
 
   // "Jobs For You" tab: fetch all active jobs, score, rank
   useEffect(() => {
@@ -592,7 +645,7 @@ function JobsList() {
         const supabase = getSupabase()
         const { data: jobData } = await supabase
           .from('jobs')
-          .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url)')
+          .select('id, title, slug, location, remote, remote_regions, role_type, posted_at, description, companies(name, logo_url)')
           .eq('status', 'active')
           .order('posted_at', { ascending: false })
           .limit(200)
@@ -602,6 +655,7 @@ function JobsList() {
           company_name: j.companies?.name || '',
           company_logo: j.companies?.logo_url || null,
           description: j.description || null,
+          remote_regions: j.remote_regions || null,
           salary_min: null,
           salary_max: null,
           salary_currency: null,
@@ -832,6 +886,22 @@ function JobsList() {
               </div>
             </div>
           </div>
+
+          {/* Remote region filters — only shown when Remote filter is active */}
+          {selectedLocation === 'remote' && (
+            <div className="border-b border-rp-border px-8 py-3">
+              <div className="max-w-4xl mx-auto">
+                <div className="relative after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none md:after:hidden">
+                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:flex-wrap items-center">
+                    <span className="text-xs text-slate-400 font-medium whitespace-nowrap mr-1">Region</span>
+                    {REMOTE_REGION_FILTERS.map((region) => (
+                      <RemoteRegionPill key={region.value} region={region} selected={selectedRemoteRegion === region.value} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Salary filters — only shown when salary data exists */}
           {hasSalaryData && (

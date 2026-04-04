@@ -573,10 +573,18 @@ export default function JobPage() {
   })()
 
   // Build deduplicated meta pills
+  // If remote with regions, show "Remote · UK, US" etc. instead of plain "Remote"
+  const remoteLabel = (() => {
+    if (!job.remote) return null
+    if (job.remote_regions && Array.isArray(job.remote_regions) && job.remote_regions.length > 0) {
+      return `Remote · ${job.remote_regions.join(', ')}`
+    }
+    return 'Remote'
+  })()
   const rawMeta = [
     job.location,
     job.role_type,
-    job.remote ? 'Remote' : null,
+    remoteLabel,
     job.employment,
   ].filter(Boolean) as string[]
   const metaPills = Array.from(new Set(rawMeta.map(s => s.trim()))).filter(Boolean)

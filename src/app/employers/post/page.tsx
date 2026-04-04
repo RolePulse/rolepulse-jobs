@@ -7,6 +7,15 @@ import { createClient } from '@/lib/supabase/client'
 
 const ROLE_TYPES = ['AE', 'SDR', 'CSM', 'AM', 'RevOps', 'Marketing', 'Growth', 'Sales', 'Partnerships', 'Enablement']
 
+const REMOTE_REGIONS = [
+  { value: 'Worldwide', label: 'Remote — Worldwide' },
+  { value: 'US', label: 'Remote — US' },
+  { value: 'UK', label: 'Remote — UK' },
+  { value: 'Europe', label: 'Remote — Europe' },
+  { value: 'Canada', label: 'Remote — Canada' },
+  { value: 'APAC', label: 'Remote — APAC' },
+]
+
 function PostJobForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -18,10 +27,17 @@ function PostJobForm() {
   const [title, setTitle] = useState('')
   const [location, setLocation] = useState('')
   const [remote, setRemote] = useState(false)
+  const [remoteRegions, setRemoteRegions] = useState<string[]>([])
   const [roleType, setRoleType] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  function toggleRegion(value: string) {
+    setRemoteRegions(prev =>
+      prev.includes(value) ? prev.filter(r => r !== value) : [...prev, value]
+    )
+  }
 
   useEffect(() => {
     async function checkAuth() {
@@ -53,6 +69,7 @@ function PostJobForm() {
         title,
         location: remote ? 'Remote' : location,
         remote,
+        remote_regions: remote && remoteRegions.length > 0 ? remoteRegions : null,
         role_type: roleType,
         description,
         employer_id: employerId,
@@ -120,12 +137,45 @@ function PostJobForm() {
                 type="checkbox"
                 id="remote"
                 checked={remote}
-                onChange={(e) => setRemote(e.target.checked)}
+                onChange={(e) => {
+                  setRemote(e.target.checked)
+                  if (!e.target.checked) setRemoteRegions([])
+                }}
                 className="w-4 h-4 accent-rp-accent"
               />
               <label htmlFor="remote" className="text-sm text-rp-text-2">Remote</label>
             </div>
           </div>
+
+          {remote && (
+            <div>
+              <label className="block text-sm font-medium text-rp-text-1 mb-2">
+                Remote regions <span className="font-normal text-rp-text-3">(select all that apply)</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {REMOTE_REGIONS.map((r) => {
+                  const selected = remoteRegions.includes(r.value)
+                  return (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => toggleRegion(r.value)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                        selected
+                          ? 'bg-rp-accent text-white border-rp-accent'
+                          : 'border-rp-border text-rp-text-2 hover:border-rp-accent'
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  )
+                })}
+              </div>
+              {remoteRegions.length === 0 && (
+                <p className="text-xs text-rp-text-3 mt-1.5">No regions selected — role will show as &quot;Remote · Worldwide&quot;</p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-rp-text-1 mb-1">Role type <span className="text-red-500">*</span></label>

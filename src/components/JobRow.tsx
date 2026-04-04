@@ -75,9 +75,12 @@ export function JobRow({ job, companyLogo, matchScore }: { job: any; companyLogo
           {matchScore !== undefined && matchScore !== null && (
             <MatchBadge score={matchScore} />
           )}
-          {job.location && (
-            <span className="hidden sm:block text-sm text-rp-text-3 max-w-[160px] truncate">
-              {truncateLocation(job.location)}
+          {(job.location || (job.remote && job.remote_regions?.length > 0)) && (
+            <span className="hidden sm:block text-sm text-rp-text-3 max-w-[200px] truncate">
+              {job.remote && job.remote_regions?.length > 0
+                ? `Remote · ${job.remote_regions.slice(0, 2).join(', ')}${job.remote_regions.length > 2 ? '…' : ''}`
+                : truncateLocation(job.location)
+              }
             </span>
           )}
           {job.role_type && (

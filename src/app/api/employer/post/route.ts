@@ -16,7 +16,7 @@ function slugify(text: string): string {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { title, location, remote, role_type, description, employer_id, company_id, price_id, tier } = body
+    const { title, location, remote, remote_regions, role_type, description, employer_id, company_id, price_id, tier } = body
 
     // Validate
     if (!title || !role_type || !description || !employer_id || !company_id || !price_id) {
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
         slug: baseSlug,
         location,
         remote,
+        remote_regions: remote_regions ?? null,
         role_type,
         description,
         source: 'employer',
