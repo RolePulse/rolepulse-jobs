@@ -24,6 +24,13 @@ function PostJobForm() {
   const priceId = searchParams.get('price_id') || 'price_1TEuR4RsDnlecpjihsgT4H7Z'
   const tier = searchParams.get('tier') || 'standard'
 
+  // Import from URL state
+  const [importUrl, setImportUrl] = useState('')
+  const [importLoading, setImportLoading] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+  const [importSuccess, setImportSuccess] = useState(false)
+
+  // Form fields
   const [title, setTitle] = useState('')
   const [location, setLocation] = useState('')
   const [remote, setRemote] = useState(false)
@@ -49,6 +56,36 @@ function PostJobForm() {
     }
     checkAuth()
   }, [router])
+
+  async function handleImport() {
+    if (!importUrl.trim()) return
+    setImportError(null)
+    setImportSuccess(false)
+    setImportLoading(true)
+
+    try {
+      const res = await fetch(`/api/job-import?url=${encodeURIComponent(importUrl.trim())}`)
+      const data = await res.json()
+
+      if (!res.ok || !data.ok) {
+        setImportError(data.error || "Couldn't parse that URL — fill in manually.")
+        setImportLoading(false)
+        return
+      }
+
+      // Pre-populate fields from import
+      if (data.title) setTitle(data.title)
+      if (data.location) setLocation(data.location)
+      if (typeof data.remote === 'boolean') setRemote(data.remote)
+      if (data.role_type && ROLE_TYPES.includes(data.role_type)) setRoleType(data.role_type)
+      if (data.description) setDescription(data.description)
+      setImportSuccess(true)
+    } catch {
+      setImportError("Couldn't reach that URL — check it's correct and try again.")
+    } finally {
+      setImportLoading(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -102,6 +139,40 @@ function PostJobForm() {
           Tier: <span className="capitalize font-medium text-rp-text-2">{tier}</span>
           {' · '}You&apos;ll be taken to Stripe to complete payment.
         </p>
+
+        {/* ── Import from URL ── */}
+        <div className="mb-8 rounded-xl border border-rp-border bg-rp-bg p-5">
+          <p className="text-sm font-medium text-rp-text-1 mb-1">
+            Import from URL <span className="text-rp-text-3 font-normal">(optional)</span>
+          </p>
+          <p className="text-xs text-rp-text-3 mb-3">
+            Paste a link to your job posting — we&apos;ll auto-fill the form. Works with Greenhouse, Lever, Ashby, and most careers pages.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="url"
+              value={importUrl}
+              onChange={(e) => { setImportUrl(e.target.value); setImportError(null); setImportSuccess(false) }}
+              placeholder="https://jobs.lever.co/yourcompany/..."
+              className="flex-1 px-4 py-2.5 rounded-lg border border-rp-border bg-white text-rp-text-1 text-sm focus:outline-none focus:border-rp-accent"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleImport() } }}
+            />
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={importLoading || !importUrl.trim()}
+              className="px-4 py-2.5 rounded-lg bg-rp-accent text-white text-sm font-medium hover:bg-rp-accent-dk transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              {importLoading ? 'Fetching…' : 'Import'}
+            </button>
+          </div>
+          {importError && (
+            <p className="mt-2 text-xs text-red-600">{importError}</p>
+          )}
+          {importSuccess && (
+            <p className="mt-2 text-xs text-green-600">✓ Fields pre-filled — review and edit below before submitting.</p>
+          )}
+        </div>
 
         {error && (
           <div className="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>
