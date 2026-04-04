@@ -6,6 +6,7 @@ import Link from 'next/link'
 import DOMPurify from 'isomorphic-dompurify'
 import { SaveJobButton } from '@/components/SaveJobButton'
 import { CompanyLogo } from '@/components/CompanyLogo'
+import { TrackApplicationButton } from '@/components/TrackApplicationButton'
 
 // ── CV Scorer component ───────────────────────────────────────────────────────
 interface ScoreResult {
@@ -644,6 +645,14 @@ export default function JobPage() {
             {applyLabel}
           </a>
           <SaveJobButton jobId={job.id} />
+          <TrackApplicationButton
+            jobId={job.id}
+            jobTitle={job.title}
+            companyName={company?.name ?? ''}
+            jobUrl={job.apply_url ?? undefined}
+            logoUrl={company?.logo_url ?? undefined}
+            matchScore={null}
+          />
           {!isEmployerListing && (
             <p className="text-xs text-rp-text-3 text-center">You&apos;ll be redirected to {company?.name}&apos;s careers page.</p>
           )}
@@ -721,6 +730,18 @@ export default function JobPage() {
                 {/* Save role button */}
                 <div className="[&_button]:rounded-full [&_button]:transition-all [&_button:not([disabled])]:hover:border-[#374151]">
                   <SaveJobButton jobId={job.id} />
+                </div>
+
+                {/* Track application button */}
+                <div className="mt-2">
+                  <TrackApplicationButton
+                    jobId={job.id}
+                    jobTitle={job.title}
+                    companyName={company?.name ?? ''}
+                    jobUrl={job.apply_url ?? undefined}
+                    logoUrl={company?.logo_url ?? undefined}
+                    matchScore={null}
+                  />
                 </div>
 
                 {!isEmployerListing && (

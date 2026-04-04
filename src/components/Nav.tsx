@@ -40,6 +40,10 @@ export function Nav() {
     { href: '/jobs', label: 'Browse roles' },
   ]
 
+  const authNavLinks = [
+    { href: '/pipeline', label: 'Pipeline' },
+  ]
+
   return (
     <nav className="bg-rp-black border-b border-white/10 sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-8 h-14 flex items-center justify-between">
@@ -52,6 +56,20 @@ export function Nav() {
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-6">
           {navLinks.map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className={`text-sm transition-colors ${
+                isActive(href)
+                  ? 'text-white underline underline-offset-4'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              {label}
+            </Link>
+          ))}
+
+          {user && authNavLinks.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
@@ -167,6 +185,7 @@ export function Nav() {
           </Link>
           {user ? (
             <>
+              <Link href="/pipeline" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Pipeline</Link>
               <Link href="/account/saved" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Saved jobs</Link>
               <Link href="/account/alerts" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Job alerts</Link>
               <Link href="/employers/dashboard" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Employer dashboard</Link>
