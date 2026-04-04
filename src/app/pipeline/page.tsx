@@ -67,6 +67,9 @@ function formatDate(iso: string): string {
 
 // ── Add Application Modal ─────────────────────────────────────────────────────
 
+// ── Add Modal steps ───────────────────────────────────────────────────────────
+type AddStep = 'pick' | 'url-input' | 'url-loading' | 'confirm' | 'manual'
+
 function AddModal({
   initialStage,
   onClose,
@@ -76,6 +79,11 @@ function AddModal({
   onClose: () => void
   onCreated: (app: Application) => void
 }) {
+  const [step, setStep] = useState<AddStep>('pick')
+  const [jobUrl, setJobUrl] = useState('')
+  const [fetchErr, setFetchErr] = useState('')
+
+  // Form fields (shared between confirm + manual)
   const [company, setCompany] = useState('')
   const [role, setRole] = useState('')
   const [url, setUrl] = useState('')
@@ -84,6 +92,40 @@ function AddModal({
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
+  // ── URL fetch ──
+  async function handleFetchUrl() {
+    if (!jobUrl.trim()) return
+    setFetchErr('')
+    setStep('url-loading')
+    try {
+      const res = await fetch(`/api/job-import?url=${encodeURIComponent(jobUrl.trim())}`)
+      const json = await res.json()
+      if (!res.ok || !json.ok) {
+        // Graceful degradation → pre-fill URL and drop into manual
+        setUrl(jobUrl.trim())
+        setFetchErr(json.error ?? 'Could not extract job details — fill in manually.')
+        setStep('manual')
+        return
+      }
+      // Pre-fill confirm form
+      setRole(json.title || '')
+      setUrl(jobUrl.trim())
+      // Extract company from URL hostname as best-effort
+      try {
+        const host = new URL(jobUrl.trim()).hostname.replace(/^www\./, '')
+        const parts = host.split('.')
+        const domain = parts.length >= 2 ? parts[parts.length - 2] : host
+        setCompany(domain.charAt(0).toUpperCase() + domain.slice(1))
+      } catch { /* leave blank */ }
+      setStep('confirm')
+    } catch {
+      setUrl(jobUrl.trim())
+      setFetchErr('Network error — fill in manually.')
+      setStep('manual')
+    }
+  }
+
+  // ── Submit ──
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!company.trim() || !role.trim()) { setErr('Company and role are required'); return }
@@ -105,69 +147,180 @@ function AddModal({
     }
   }
 
+  const CloseBtn = () => (
+    <button onClick={onClose} className="text-rp-text-3 hover:text-rp-text-1 transition-colors">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    </button>
+  )
+
+  // ── Shared form body (confirm + manual) ──
+  const FormBody = () => (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-rp-text-2 mb-1">Company *</label>
+        <input
+          className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+          value={company} onChange={e => setCompany(e.target.value)} placeholder="Acme Corp" autoFocus
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-rp-text-2 mb-1">Role *</label>
+        <input
+          className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+          value={role} onChange={e => setRole(e.target.value)} placeholder="Account Executive"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-rp-text-2 mb-1">Job URL</label>
+        <input
+          className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+          value={url} onChange={e => setUrl(e.target.value)} placeholder="https://..."
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-rp-text-2 mb-1">Stage</label>
+          <select className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+            value={stage} onChange={e => setStage(e.target.value as Stage)}>
+            {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-rp-text-2 mb-1">Source</label>
+          <select className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+            value={source} onChange={e => setSource(e.target.value as Source)}>
+            {(Object.entries(SOURCE_LABELS) as [Source, string][]).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+      </div>
+      {err && <p className="text-red-500 text-sm">{err}</p>}
+      <div className="flex gap-3 pt-1">
+        <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-rp-border text-sm text-rp-text-2 hover:border-rp-text-3 transition-colors">
+          Cancel
+        </button>
+        <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-rp-accent text-white text-sm font-medium hover:bg-rp-accent-dk transition-colors disabled:opacity-50">
+          {saving ? 'Adding…' : 'Add'}
+        </button>
+      </div>
+    </form>
+  )
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-rp-text-1">Add application</h2>
-          <button onClick={onClose} className="text-rp-text-3 hover:text-rp-text-1 transition-colors">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-rp-text-2 mb-1">Company *</label>
-            <input
-              className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
-              value={company} onChange={e => setCompany(e.target.value)} placeholder="Acme Corp" autoFocus
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-rp-text-2 mb-1">Role *</label>
-            <input
-              className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
-              value={role} onChange={e => setRole(e.target.value)} placeholder="Account Executive"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-rp-text-2 mb-1">Job URL</label>
-            <input
-              className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
-              value={url} onChange={e => setUrl(e.target.value)} placeholder="https://..."
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-rp-text-2 mb-1">Stage</label>
-              <select
-                className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
-                value={stage} onChange={e => setStage(e.target.value as Stage)}
-              >
-                {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-              </select>
+
+        {/* ── Step: pick mode ── */}
+        {step === 'pick' && (
+          <>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-rp-text-1">Add application</h2>
+              <CloseBtn />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-rp-text-2 mb-1">Source</label>
-              <select
-                className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
-                value={source} onChange={e => setSource(e.target.value as Source)}
+            <div className="space-y-3">
+              <button
+                onClick={() => setStep('url-input')}
+                className="w-full flex items-start gap-4 p-4 rounded-xl border-2 border-rp-accent/30 hover:border-rp-accent bg-rp-accent/5 hover:bg-rp-accent/10 transition-all text-left group"
               >
-                {(Object.entries(SOURCE_LABELS) as [Source, string][]).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+                <span className="text-2xl mt-0.5">🔗</span>
+                <div>
+                  <p className="font-semibold text-rp-text-1 group-hover:text-rp-accent transition-colors">Paste a job URL</p>
+                  <p className="text-sm text-rp-text-3 mt-0.5">Greenhouse, Lever, Ashby, company sites — we&apos;ll fill in the details</p>
+                </div>
+              </button>
+              <button
+                onClick={() => setStep('manual')}
+                className="w-full flex items-start gap-4 p-4 rounded-xl border border-rp-border hover:border-rp-text-3 transition-all text-left"
+              >
+                <span className="text-2xl mt-0.5">✏️</span>
+                <div>
+                  <p className="font-semibold text-rp-text-1">Add manually</p>
+                  <p className="text-sm text-rp-text-3 mt-0.5">Type in the company, role, and details yourself</p>
+                </div>
+              </button>
             </div>
+          </>
+        )}
+
+        {/* ── Step: URL input ── */}
+        {step === 'url-input' && (
+          <>
+            <div className="flex items-center justify-between mb-5">
+              <button onClick={() => setStep('pick')} className="text-rp-text-3 hover:text-rp-text-1 transition-colors text-sm flex items-center gap-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+                Back
+              </button>
+              <h2 className="text-lg font-semibold text-rp-text-1">Paste job URL</h2>
+              <CloseBtn />
+            </div>
+            <div className="space-y-4">
+              <input
+                className="w-full border border-rp-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-rp-accent"
+                value={jobUrl}
+                onChange={e => setJobUrl(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleFetchUrl() } }}
+                placeholder="Paste a job posting URL — LinkedIn, Greenhouse, company site…"
+                autoFocus
+              />
+              {fetchErr && <p className="text-amber-600 text-sm">{fetchErr}</p>}
+              <p className="text-xs text-rp-text-3">Works best with Greenhouse, Lever, Ashby. LinkedIn requires manual entry.</p>
+              <div className="flex gap-3">
+                <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-rp-border text-sm text-rp-text-2 hover:border-rp-text-3 transition-colors">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleFetchUrl}
+                  disabled={!jobUrl.trim()}
+                  className="flex-1 py-2 rounded-lg bg-rp-accent text-white text-sm font-medium hover:bg-rp-accent-dk transition-colors disabled:opacity-40"
+                >
+                  Fetch job details →
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── Step: loading ── */}
+        {step === 'url-loading' && (
+          <div className="py-8 flex flex-col items-center gap-4 text-center">
+            <div className="w-10 h-10 border-4 border-rp-accent/20 border-t-rp-accent rounded-full animate-spin" />
+            <p className="text-rp-text-2 text-sm">Fetching job details…</p>
           </div>
-          {err && <p className="text-red-500 text-sm">{err}</p>}
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-rp-border text-sm text-rp-text-2 hover:border-rp-text-3 transition-colors">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-rp-accent text-white text-sm font-medium hover:bg-rp-accent-dk transition-colors disabled:opacity-50">
-              {saving ? 'Adding…' : 'Add'}
-            </button>
-          </div>
-        </form>
+        )}
+
+        {/* ── Step: confirm (URL populated) ── */}
+        {step === 'confirm' && (
+          <>
+            <div className="flex items-center justify-between mb-2">
+              <button onClick={() => setStep('url-input')} className="text-rp-text-3 hover:text-rp-text-1 transition-colors text-sm flex items-center gap-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+                Back
+              </button>
+              <h2 className="text-lg font-semibold text-rp-text-1">Confirm details</h2>
+              <CloseBtn />
+            </div>
+            <p className="text-xs text-rp-text-3 mb-4">Review and edit before saving.</p>
+            <FormBody />
+          </>
+        )}
+
+        {/* ── Step: manual ── */}
+        {step === 'manual' && (
+          <>
+            <div className="flex items-center justify-between mb-5">
+              <button onClick={() => setStep('pick')} className="text-rp-text-3 hover:text-rp-text-1 transition-colors text-sm flex items-center gap-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+                Back
+              </button>
+              <h2 className="text-lg font-semibold text-rp-text-1">Add application</h2>
+              <CloseBtn />
+            </div>
+            {fetchErr && <p className="text-amber-600 text-sm mb-4">{fetchErr}</p>}
+            <FormBody />
+          </>
+        )}
+
       </div>
     </div>
   )
