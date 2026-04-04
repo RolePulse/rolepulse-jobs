@@ -102,6 +102,13 @@ export function Nav() {
               {accountOpen && (
                 <div className="absolute right-0 top-8 w-44 bg-white rounded-xl border border-rp-border shadow-lg py-1 z-50">
                   <Link
+                    href="/account/profile"
+                    className="block px-4 py-2 text-sm text-rp-text-1 hover:bg-rp-bg transition-colors"
+                    onClick={() => setAccountOpen(false)}
+                  >
+                    My profile
+                  </Link>
+                  <Link
                     href="/account/saved"
                     className="block px-4 py-2 text-sm text-rp-text-1 hover:bg-rp-bg transition-colors"
                     onClick={() => setAccountOpen(false)}
@@ -186,6 +193,7 @@ export function Nav() {
           {user ? (
             <>
               <Link href="/pipeline" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Pipeline</Link>
+              <Link href="/account/profile" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>My profile</Link>
               <Link href="/account/saved" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Saved jobs</Link>
               <Link href="/account/alerts" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Job alerts</Link>
               <Link href="/employers/dashboard" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Employer dashboard</Link>
