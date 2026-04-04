@@ -10,6 +10,15 @@ const nextConfig: NextConfig = {
     unoptimized: true,  // allows any external image URL without domain restrictions
   },
   // Removed root redirect — / now serves the brand homepage (page.tsx)
+  async redirects() {
+    return [
+      {
+        source: '/profile',
+        destination: '/account/profile',
+        permanent: true,
+      },
+    ]
+  },
 };
 
 export default nextConfig;
