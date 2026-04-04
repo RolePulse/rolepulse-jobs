@@ -92,7 +92,7 @@ function PostJobForm() {
     setError(null)
 
     if (!title.trim()) { setError('Job title is required'); return }
-    if (!location.trim() && !remote) { setError('Location is required (or mark as remote)'); return }
+    if (!location.trim() && !remote) { setError('Location is required (or mark as remote with a region)'); return }
     if (!roleType) { setError('Role type is required'); return }
     if (!description.trim() || description.length < 100) { setError('Description must be at least 100 characters'); return }
     if (!employerId || !companyId) { setError('Missing employer info. Go back and fill in company details.'); return }
@@ -104,7 +104,9 @@ function PostJobForm() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title,
-        location: remote ? 'Remote' : location,
+        location: remote
+          ? (location.trim() ? `Remote — ${location.trim()}` : 'Remote')
+          : location,
         remote,
         remote_regions: remote && remoteRegions.length > 0 ? remoteRegions : null,
         role_type: roleType,
@@ -193,14 +195,15 @@ function PostJobForm() {
 
           <div className="flex gap-4 items-start">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-rp-text-1 mb-1">Location</label>
+              <label className="block text-sm font-medium text-rp-text-1 mb-1">
+                {remote ? 'Region' : 'Location'}
+              </label>
               <input
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                disabled={remote}
-                className="w-full px-4 py-3 rounded-lg border border-rp-border bg-white text-rp-text-1 focus:outline-none focus:border-rp-accent disabled:opacity-50 disabled:bg-rp-bg"
-                placeholder="London, UK"
+                className="w-full px-4 py-3 rounded-lg border border-rp-border bg-white text-rp-text-1 focus:outline-none focus:border-rp-accent"
+                placeholder={remote ? 'Region — e.g. US, UK, Canada, EMEA, Worldwide' : 'London, UK'}
               />
             </div>
             <div className="pt-7 flex items-center gap-2">
@@ -210,7 +213,11 @@ function PostJobForm() {
                 checked={remote}
                 onChange={(e) => {
                   setRemote(e.target.checked)
-                  if (!e.target.checked) setRemoteRegions([])
+                  if (!e.target.checked) {
+                    setRemoteRegions([])
+                  } else if (!location.trim()) {
+                    setLocation('Worldwide')
+                  }
                 }}
                 className="w-4 h-4 accent-rp-accent"
               />

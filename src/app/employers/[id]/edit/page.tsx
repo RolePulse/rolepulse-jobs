@@ -5,6 +5,15 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
+const REMOTE_REGIONS = [
+  { value: 'Worldwide', label: 'Remote — Worldwide' },
+  { value: 'US', label: 'Remote — US' },
+  { value: 'UK', label: 'Remote — UK' },
+  { value: 'Europe', label: 'Remote — Europe' },
+  { value: 'Canada', label: 'Remote — Canada' },
+  { value: 'APAC', label: 'Remote — APAC' },
+]
+
 export default function EditJobPage() {
   const router = useRouter()
   const params = useParams()
@@ -13,11 +22,18 @@ export default function EditJobPage() {
   const [title, setTitle] = useState('')
   const [location, setLocation] = useState('')
   const [remote, setRemote] = useState(false)
+  const [remoteRegions, setRemoteRegions] = useState<string[]>([])
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+
+  function toggleRegion(value: string) {
+    setRemoteRegions(prev =>
+      prev.includes(value) ? prev.filter(r => r !== value) : [...prev, value]
+    )
+  }
 
   useEffect(() => {
     async function fetchJob() {
@@ -55,8 +71,14 @@ export default function EditJobPage() {
       }
 
       setTitle(job.title)
-      setLocation(job.location || '')
       setRemote(job.remote)
+      setRemoteRegions(job.remote_regions ?? [])
+      // For remote jobs, strip the 'Remote — ' prefix for the region field
+      const rawLocation = job.location || ''
+      setLocation(job.remote && rawLocation.startsWith('Remote — ')
+        ? rawLocation.replace('Remote — ', '')
+        : rawLocation
+      )
       setDescription(job.description || '')
       setLoading(false)
     }
@@ -78,8 +100,11 @@ export default function EditJobPage() {
       .from('jobs')
       .update({
         title,
-        location: remote ? 'Remote' : location,
+        location: remote
+          ? (location.trim() ? `Remote — ${location.trim()}` : 'Remote')
+          : location,
         remote,
+        remote_regions: remote && remoteRegions.length > 0 ? remoteRegions : null,
         description,
       })
       .eq('id', jobId)
@@ -131,13 +156,15 @@ export default function EditJobPage() {
 
           <div className="flex gap-4 items-start">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-rp-text-1 mb-1">Location</label>
+              <label className="block text-sm font-medium text-rp-text-1 mb-1">
+                {remote ? 'Region' : 'Location'}
+              </label>
               <input
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                disabled={remote}
-                className="w-full px-4 py-3 rounded-lg border border-rp-border bg-white text-rp-text-1 focus:outline-none focus:border-rp-accent disabled:opacity-50 disabled:bg-rp-bg"
+                className="w-full px-4 py-3 rounded-lg border border-rp-border bg-white text-rp-text-1 focus:outline-none focus:border-rp-accent"
+                placeholder={remote ? 'Region — e.g. US, UK, Canada, EMEA, Worldwide' : 'London, UK'}
               />
             </div>
             <div className="pt-7 flex items-center gap-2">
@@ -145,12 +172,49 @@ export default function EditJobPage() {
                 type="checkbox"
                 id="remote"
                 checked={remote}
-                onChange={(e) => setRemote(e.target.checked)}
+                onChange={(e) => {
+                  setRemote(e.target.checked)
+                  if (!e.target.checked) {
+                    setRemoteRegions([])
+                  } else if (!location.trim()) {
+                    setLocation('Worldwide')
+                  }
+                }}
                 className="w-4 h-4 accent-rp-accent"
               />
               <label htmlFor="remote" className="text-sm text-rp-text-2">Remote</label>
             </div>
           </div>
+
+          {remote && (
+            <div>
+              <label className="block text-sm font-medium text-rp-text-1 mb-2">
+                Remote regions <span className="font-normal text-rp-text-3">(select all that apply)</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {REMOTE_REGIONS.map((r) => {
+                  const selected = remoteRegions.includes(r.value)
+                  return (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => toggleRegion(r.value)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                        selected
+                          ? 'bg-rp-accent text-white border-rp-accent'
+                          : 'border-rp-border text-rp-text-2 hover:border-rp-accent'
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  )
+                })}
+              </div>
+              {remoteRegions.length === 0 && (
+                <p className="text-xs text-rp-text-3 mt-1.5">No regions selected — role will show as &quot;Remote · Worldwide&quot;</p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-rp-text-1 mb-1">Description</label>
