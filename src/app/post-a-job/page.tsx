@@ -115,20 +115,11 @@ export default function PostAJobPage() {
       {/* Pricing cards */}
       <div className="max-w-5xl mx-auto px-8 py-16">
         <h2 className="text-2xl font-semibold text-rp-text-1 mb-12 text-center">Choose your listing</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
           {TIERS.map((tier) => (
-            <div key={tier.name} className="relative flex flex-col">
-              {/* Most Popular badge — ABOVE the card */}
-              {tier.featured && (
-                <div className="flex justify-center mb-2">
-                  <span className="bg-rp-accent text-white text-xs font-semibold px-4 py-1 rounded-full whitespace-nowrap">
-                    Most Popular
-                  </span>
-                </div>
-              )}
-
+            <div key={tier.name} className="relative flex flex-col pt-4">
               <div
-                className={`rounded-2xl p-8 flex flex-col flex-1 ${
+                className={`rounded-2xl p-8 flex flex-col flex-1 relative ${
                   tier.newsletter
                     ? 'bg-[#111827] text-white'
                     : tier.featured
@@ -136,6 +127,15 @@ export default function PostAJobPage() {
                     : 'bg-white border border-[#E5E7EB]'
                 }`}
               >
+                {/* Most Popular badge — overlaps top edge of card */}
+                {tier.featured && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                    <span className="bg-rp-accent text-white text-xs font-semibold px-4 py-1 rounded-full whitespace-nowrap">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+
                 <div className="mb-4">
                   <p className={`text-lg font-semibold ${tier.newsletter ? 'text-white' : 'text-rp-text-1'}`}>
                     {tier.name}
@@ -159,19 +159,9 @@ export default function PostAJobPage() {
                   ))}
                 </ul>
 
-                {tier.newsletter && (
-                  <p className="text-xs text-slate-400 mb-6 mt-2 italic">
-                    1,600 GTM subscribers · 36% open rate · Direct inbox placement
-                  </p>
-                )}
-
                 <Link
                   href={`/employers/new?tier=${tier.name.toLowerCase()}&price_id=${tier.priceId}`}
-                  className={`block text-center py-3 px-6 rounded-full font-medium transition-colors mt-auto ${
-                    tier.newsletter
-                      ? 'bg-rp-accent text-white hover:bg-rp-accent-dk'
-                      : 'bg-rp-black text-white hover:bg-zinc-800'
-                  }`}
+                  className="block text-center py-3 px-6 rounded-full font-medium transition-colors mt-auto bg-rp-accent text-white hover:bg-rp-accent-dk"
                 >
                   {tier.cta} →
                 </Link>
