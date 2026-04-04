@@ -283,10 +283,7 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
           {result.flags.map((f, i) => <p key={i} className="text-[11px] text-slate-500">✗ {f}</p>)}
         </div>
       )}
-      <a href="https://www.cvpulse.io" target="_blank" rel="noopener noreferrer"
-        className="text-[11px] text-rp-accent hover:underline">
-        Get a full CV review on CV Pulse →
-      </a>
+      {/* CV Pulse link removed — CV Pulse not yet publicly launched */}
 
       {/* Returning user: saved CV info */}
       {savedCvInfo && (
