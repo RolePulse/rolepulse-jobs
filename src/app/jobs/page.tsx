@@ -499,7 +499,7 @@ function JobsList() {
 
       let query = supabase
         .from('jobs')
-        .select('id, title, slug, location, remote, remote_regions, role_type, posted_at, description, companies(name, logo_url)', { count: 'exact' })
+        .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url)', { count: 'exact' })
         .eq('status', 'active')
         .order('posted_at', { ascending: false })
         .range(from, to)
@@ -533,9 +533,10 @@ function JobsList() {
       }
 
       // Remote region filter: only jobs where remote_regions contains the selected region
-      if (selectedRemoteRegion) {
-        query = (query as any).contains('remote_regions', [selectedRemoteRegion])
-      }
+      // TODO: enable once remote_regions column is added via migration
+      // if (selectedRemoteRegion) {
+      //   query = (query as any).contains('remote_regions', [selectedRemoteRegion])
+      // }
 
       if (q) {
         query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`)
@@ -645,7 +646,7 @@ function JobsList() {
         const supabase = getSupabase()
         const { data: jobData } = await supabase
           .from('jobs')
-          .select('id, title, slug, location, remote, remote_regions, role_type, posted_at, description, companies(name, logo_url)')
+          .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url)')
           .eq('status', 'active')
           .order('posted_at', { ascending: false })
           .limit(200)
