@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 
 function companyColour(name: string): string {
   let hash = 0
@@ -62,15 +61,17 @@ export function CompanyLogo({ src, name, size = 32, className = '', useHashColou
 
   if (currentSrc && !imgError) {
     return (
-      <Image
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
         src={currentSrc}
         alt={`${name} logo`}
         width={size}
         height={size}
-        sizes={`${size}px`}
-        className={`rounded object-contain ${className}`}
+        loading="lazy"
+        className={`rounded object-contain flex-shrink-0 ${className}`}
+        style={{ width: size, height: size }}
         onError={() => {
-          // If clearbit failed and we have the original gstatic URL, try it once
+          // If upgraded favicon URL failed, try the original src once before falling back to initials
           if (!triedClearbit && src && resolvedSrc !== src) {
             setTriedClearbit(true)
             setFallbackSrc(src)
