@@ -331,8 +331,8 @@ function JobsForYouContent({
 
   const hasPrefs = prefs && (prefs.preferredLocationType !== 'open' || prefs.salaryMin !== null || prefs.salaryMax !== null)
   const strongMatches = jobs.filter(j => {
-    const s = matchScores[j.id]
-    return typeof s === 'number' && s >= 60
+    const total = matchBreakdowns[j.id]?.total
+    return typeof total === 'number' && total >= 60
   })
 
   return (
@@ -371,7 +371,7 @@ function JobsForYouContent({
           <JobRow
             job={job}
             companyLogo={job.company_logo ?? undefined}
-            matchScore={matchScores[job.id] ?? undefined}
+            matchScore={matchBreakdowns[job.id]?.total ?? matchScores[job.id] ?? undefined}
           />
           {matchBreakdowns[job.id] && matchScores[job.id] !== 'loading' && (
             <div className="px-0 pb-2 -mt-2 flex justify-end">
@@ -710,7 +710,7 @@ function JobsList() {
               const cv = cvScores[job.id] ?? null
               const locScore_ = prefs ? locationScore(job as JobForScoring, prefs) : 100
               const salScore_ = prefs ? salaryScore(job as JobForScoring, prefs) : 100
-              const total = compositeScore(cv, locScore_, salScore_)
+              const total = compositeScore(cv, locScore_, salScore_, { jobTitle: job.title, cvText })
               breakdowns[job.id] = { cvScore: cv, locScore: locScore_, salScore: salScore_, total }
               return { job, total }
             })
@@ -732,7 +732,7 @@ function JobsList() {
           const cv = cvScores[job.id] ?? null
           const locScore_ = prefs ? locationScore(job as JobForScoring, prefs) : 100
           const salScore_ = prefs ? salaryScore(job as JobForScoring, prefs) : 100
-          const total = compositeScore(cv, locScore_, salScore_)
+          const total = compositeScore(cv, locScore_, salScore_, { jobTitle: job.title, cvText })
           finalBreakdowns[job.id] = { cvScore: cv, locScore: locScore_, salScore: salScore_, total }
           return { job, total }
         })
