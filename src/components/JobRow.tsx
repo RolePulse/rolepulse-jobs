@@ -54,6 +54,7 @@ export function JobRow({ job, companyLogo, matchScore }: { job: any; companyLogo
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <CompanyLogo
             src={companyLogo}
+            domain={job.company_domain}
             name={job.company_name || '?'}
             size={32}
             useHashColour

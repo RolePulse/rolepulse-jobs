@@ -44,20 +44,35 @@ function resolveSrc(src: string): string {
 interface CompanyLogoProps {
   src: string | null | undefined
   name: string
+  domain?: string | null | undefined
   size?: number
   className?: string
   useHashColour?: boolean
 }
 
-export function CompanyLogo({ src, name, size = 32, className = '', useHashColour = false }: CompanyLogoProps) {
+function faviconFromDomain(domain: string | null | undefined): string | null {
+  if (!domain) return null
+  const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  if (!clean) return null
+  return `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${clean}&size=128`
+}
+
+export function CompanyLogo({ src, name, domain, size = 32, className = '', useHashColour = false }: CompanyLogoProps) {
   const resolvedSrc = src ? resolveSrc(src) : null
+  const domainFallback = faviconFromDomain(domain)
   const [imgError, setImgError] = useState(false)
-  // If Clearbit fails, try the original src as a second chance before falling back to initials
-  const [triedClearbit, setTriedClearbit] = useState(false)
-  const [fallbackSrc, setFallbackSrc] = useState<string | null>(null)
+  // Try multiple image sources before falling back to initials:
+  // 1) upgraded favicon URL
+  // 2) original stored src
+  // 3) direct domain-derived favicon URL
+  const [fallbackStep, setFallbackStep] = useState<0 | 1 | 2>(0)
   const initial = name?.charAt(0).toUpperCase() || '?'
 
-  const currentSrc = fallbackSrc ?? resolvedSrc
+  const currentSrc = fallbackStep === 0
+    ? resolvedSrc
+    : fallbackStep === 1
+      ? (src ?? domainFallback)
+      : domainFallback
 
   if (currentSrc && !imgError) {
     return (
@@ -71,13 +86,15 @@ export function CompanyLogo({ src, name, size = 32, className = '', useHashColou
         className={`rounded object-contain flex-shrink-0 ${className}`}
         style={{ width: size, height: size }}
         onError={() => {
-          // If upgraded favicon URL failed, try the original src once before falling back to initials
-          if (!triedClearbit && src && resolvedSrc !== src) {
-            setTriedClearbit(true)
-            setFallbackSrc(src)
-          } else {
-            setImgError(true)
+          if (fallbackStep === 0 && src && resolvedSrc !== src) {
+            setFallbackStep(1)
+            return
           }
+          if (fallbackStep < 2 && domainFallback && currentSrc !== domainFallback) {
+            setFallbackStep(2)
+            return
+          }
+          setImgError(true)
         }}
       />
     )

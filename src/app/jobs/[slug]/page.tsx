@@ -468,7 +468,7 @@ function RelatedJobCard({ job }: { job: any }) {
       href={`/jobs/${job.slug}`}
       className="group flex items-center gap-4 p-4 rounded-xl border border-[#E5E7EB] hover:border-rp-accent hover:shadow-md transition-all duration-200 hover:-translate-y-[3px]"
     >
-      <CompanyLogo name={job.company_name || '?'} src={job.company_logo} size={36} useHashColour />
+      <CompanyLogo name={job.company_name || '?'} src={job.company_logo} domain={(job as any).company_domain} size={36} useHashColour />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-rp-text-1 truncate text-sm">{job.title}</p>
         <p className="text-xs text-rp-text-3 mt-0.5">
@@ -509,7 +509,7 @@ export default function JobPage() {
         if (jobData.role_type) {
           const { data: related } = await supabase
             .from('jobs')
-            .select('id, title, slug, location, remote, companies(name, logo_url)')
+            .select('id, title, slug, location, remote, companies(name, logo_url, domain)')
             .eq('status', 'active')
             .eq('role_type', jobData.role_type)
             .neq('id', jobData.id)
@@ -519,6 +519,7 @@ export default function JobPage() {
             ...j,
             company_name: j.companies?.name || '',
             company_logo: j.companies?.logo_url || null,
+            company_domain: j.companies?.domain || null,
           })))
         }
 

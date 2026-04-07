@@ -499,7 +499,7 @@ function JobsList() {
 
       let query = supabase
         .from('jobs')
-        .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url)', { count: 'exact' })
+        .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url, domain)', { count: 'exact' })
         .eq('status', 'active')
         .order('posted_at', { ascending: false })
         .range(from, to)
@@ -552,6 +552,7 @@ function JobsList() {
         ...j,
         company_name: j.companies?.name || '',
         company_logo: j.companies?.logo_url || null,
+        company_domain: j.companies?.domain || null,
         description: j.description || null,
         remote_regions: j.remote_regions || null,
         salary_min: null,
@@ -646,7 +647,7 @@ function JobsList() {
         const supabase = getSupabase()
         const { data: jobData } = await supabase
           .from('jobs')
-          .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url)')
+          .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url, domain)')
           .eq('status', 'active')
           .order('posted_at', { ascending: false })
           .limit(200)
@@ -655,6 +656,7 @@ function JobsList() {
           ...j,
           company_name: j.companies?.name || '',
           company_logo: j.companies?.logo_url || null,
+          company_domain: j.companies?.domain || null,
           description: j.description || null,
           remote_regions: j.remote_regions || null,
           salary_min: null,
