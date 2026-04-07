@@ -3,8 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-
-const ROLE_TYPES = ['AE', 'SDR', 'CSM', 'AM', 'RevOps', 'Marketing', 'Growth', 'Sales', 'Partnerships', 'Enablement', 'Other']
+import { ONBOARDING_ROLE_TYPES, ONBOARDING_ROLE_TYPE_LABELS } from '@/lib/role-types'
 
 const WORK_TYPES = [
   { value: 'remote', label: 'Remote' },
@@ -261,7 +260,7 @@ function Step2({
       <div className="mb-6">
         <label className="block text-sm font-semibold text-rp-text-1 mb-3">Preferred role type</label>
         <div className="flex flex-wrap gap-2">
-          {ROLE_TYPES.map((role) => (
+          {ONBOARDING_ROLE_TYPES.map((role) => (
             <button
               key={role}
               type="button"
@@ -272,7 +271,7 @@ function Step2({
                   : 'border-rp-border text-rp-text-2 hover:border-rp-accent hover:text-rp-accent'
               }`}
             >
-              {role}
+              {ONBOARDING_ROLE_TYPE_LABELS[role]}
             </button>
           ))}
         </div>
