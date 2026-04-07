@@ -57,22 +57,50 @@ function faviconFromDomain(domain: string | null | undefined): string | null {
   return `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${clean}&size=128`
 }
 
+function inferredDomainsFromName(name: string): string[] {
+  const trimmed = (name || '').trim().toLowerCase()
+  if (!trimmed) return []
+
+  const exact = trimmed
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9.\-\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const compact = exact.replace(/[\s.-]+/g, '')
+  const candidates = new Set<string>()
+
+  if (/\.[a-z]{2,}$/.test(exact) && !exact.includes(' ')) {
+    candidates.add(exact)
+  }
+
+  if (compact) {
+    candidates.add(`${compact}.com`)
+    candidates.add(`${compact}.io`)
+    candidates.add(`${compact}.ai`)
+    candidates.add(`${compact}.co`)
+  }
+
+  return Array.from(candidates)
+}
+
 export function CompanyLogo({ src, name, domain, size = 32, className = '', useHashColour = false }: CompanyLogoProps) {
   const resolvedSrc = src ? resolveSrc(src) : null
-  const domainFallback = faviconFromDomain(domain)
+  const fallbackSources = [
+    domain,
+    ...inferredDomainsFromName(name),
+  ]
+    .map(faviconFromDomain)
+    .filter((value, index, array): value is string => Boolean(value) && array.indexOf(value) === index)
   const [imgError, setImgError] = useState(false)
-  // Try multiple image sources before falling back to initials:
-  // 1) upgraded favicon URL
-  // 2) original stored src
-  // 3) direct domain-derived favicon URL
-  const [fallbackStep, setFallbackStep] = useState<0 | 1 | 2>(0)
+  const [fallbackStep, setFallbackStep] = useState(0)
   const initial = name?.charAt(0).toUpperCase() || '?'
 
   const currentSrc = fallbackStep === 0
     ? resolvedSrc
     : fallbackStep === 1
-      ? (src ?? domainFallback)
-      : domainFallback
+      ? src
+      : fallbackSources[fallbackStep - 2] ?? null
 
   if (currentSrc && !imgError) {
     return (
@@ -90,8 +118,8 @@ export function CompanyLogo({ src, name, domain, size = 32, className = '', useH
             setFallbackStep(1)
             return
           }
-          if (fallbackStep < 2 && domainFallback && currentSrc !== domainFallback) {
-            setFallbackStep(2)
+          if (fallbackStep < fallbackSources.length + 1) {
+            setFallbackStep(fallbackStep + 1)
             return
           }
           setImgError(true)
