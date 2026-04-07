@@ -81,9 +81,39 @@ export function salaryScore(job: JobForScoring, prefs: JobPreferences): number {
   return 60
 }
 
+type FunctionSignal = 'sales' | 'marketing' | 'customer_success' | 'revops' | 'partnerships'
+
+function detectFunctions(text: string): FunctionSignal[] {
+  const signals: Array<{ type: FunctionSignal, pattern: RegExp }> = [
+    {
+      type: 'sales',
+      pattern: /\b(account executive|ae\b|sales leader|sales leadership|sales director|sales manager|vp sales|head of sales|sales development|business development|bdr\b|sdr\b|new business|quota|pipeline|prospecting|closing|revenue)\b/i,
+    },
+    {
+      type: 'marketing',
+      pattern: /\b(product marketing|marketing manager|marketing director|demand gen|demand generation|growth marketing|brand marketing|content marketing|field marketing|go-to-market|gtm marketing|positioning|messaging|campaigns?)\b/i,
+    },
+    {
+      type: 'customer_success',
+      pattern: /\b(customer success|csm\b|account management|customer retention|renewals|implementation|onboarding)\b/i,
+    },
+    {
+      type: 'revops',
+      pattern: /\b(revops|revenue operations|sales operations|marketing operations|go-to-market operations|crm admin|salesforce administrator)\b/i,
+    },
+    {
+      type: 'partnerships',
+      pattern: /\b(partnerships?|channel|alliances?|partner manager|ecosystem)\b/i,
+    },
+  ]
+
+  return signals.filter(signal => signal.pattern.test(text)).map(signal => signal.type)
+}
+
 function detectCvSignals(cvText: string | null | undefined): {
   seniority: 'leadership' | 'manager' | 'senior' | 'mid'
   languages: string[]
+  functions: FunctionSignal[]
 } {
   const text = (cvText || '').toLowerCase()
 
@@ -104,7 +134,9 @@ function detectCvSignals(cvText: string | null | undefined): {
     'dutch',
   ].filter(language => new RegExp(`\\b${language}\\b`, 'i').test(text))
 
-  return { seniority, languages }
+  const functions = detectFunctions(text)
+
+  return { seniority, languages, functions }
 }
 
 function mismatchPenalty(jobTitle: string | null | undefined, cvText: string | null | undefined): number {
@@ -112,7 +144,8 @@ function mismatchPenalty(jobTitle: string | null | undefined, cvText: string | n
   if (!title) return 0
 
   let penalty = 0
-  const { seniority, languages } = detectCvSignals(cvText)
+  const { seniority, languages, functions } = detectCvSignals(cvText)
+  const titleFunctions = detectFunctions(title)
 
   const juniorRole = /\b(sdr|bdr|sales development|business development representative|associate|intern|graduate|entry level|junior)\b/.test(title)
   const managerRole = /\b(manager|team lead|lead)\b/.test(title)
@@ -128,6 +161,19 @@ function mismatchPenalty(jobTitle: string | null | undefined, cvText: string | n
 
   if (requiredLanguage && !languages.includes(requiredLanguage)) {
     penalty += 30
+  }
+
+  if (titleFunctions.length > 0 && functions.length > 0) {
+    const overlap = titleFunctions.some(fn => functions.includes(fn))
+    if (!overlap) {
+      penalty += 45
+
+      const titleIsMarketing = titleFunctions.includes('marketing')
+      const cvIsSales = functions.includes('sales')
+      if (titleIsMarketing && cvIsSales) {
+        penalty += 20
+      }
+    }
   }
 
   return penalty
