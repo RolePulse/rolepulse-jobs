@@ -22,16 +22,24 @@ export async function GET(_req: NextRequest) {
   })
 }
 
+const SUPPORTED_PREFERENCE_FIELDS = [
+  'preferred_location_type',
+  'preferred_location_city',
+  'salary_min',
+  'salary_max',
+  'salary_currency',
+  'open_to_contract',
+] as const
+
 export async function PATCH(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const body = await req.json()
-  const allowed = ['preferred_role_types', 'preferred_location_type', 'preferred_location_city', 'salary_min', 'salary_max', 'salary_currency', 'open_to_contract']
   const update: Record<string, unknown> = { id: user.id }
 
-  for (const key of allowed) {
+  for (const key of SUPPORTED_PREFERENCE_FIELDS) {
     if (key in body) update[key] = body[key] === '' ? null : body[key]
   }
 
