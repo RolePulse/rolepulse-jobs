@@ -78,6 +78,74 @@ export async function POST(req: NextRequest) {
       // Email errors must not fail the application submission
     }
 
+    // Auto-add to pipeline at 'applied' stage for authenticated users
+    if (user) {
+      try {
+        const pipelineSupabase = await createClient()
+
+        // Check if this job is already in the user's pipeline
+        const { data: existing } = await pipelineSupabase
+          .schema('jobs')
+          .from('pipeline_applications')
+          .select('id, stage')
+          .eq('user_id', user.id)
+          .eq('job_id', job_id)
+          .maybeSingle()
+
+        if (existing) {
+          // Already tracked — update stage to 'applied' if it was just saved
+          if (existing.stage === 'saved') {
+            await pipelineSupabase
+              .schema('jobs')
+              .from('pipeline_applications')
+              .update({ stage: 'applied' })
+              .eq('id', existing.id)
+          }
+        } else {
+          // Fetch job details for the pipeline card
+          const { data: jobData } = await pipelineSupabase
+            .schema('jobs')
+            .from('jobs')
+            .select('title, apply_url, companies(name, logo_url)')
+            .eq('id', job_id)
+            .single()
+
+          const companies = jobData?.companies as unknown as { name: string; logo_url: string | null } | null
+          const companyName = companies?.name ?? full_name
+          const logoUrl = companies?.logo_url ?? null
+
+          // Get max position for 'applied' stage
+          const { data: posData } = await pipelineSupabase
+            .schema('jobs')
+            .from('pipeline_applications')
+            .select('position')
+            .eq('user_id', user.id)
+            .eq('stage', 'applied')
+            .order('position', { ascending: false })
+            .limit(1)
+
+          const maxPos = posData?.[0]?.position ?? -1
+
+          await pipelineSupabase
+            .schema('jobs')
+            .from('pipeline_applications')
+            .insert({
+              user_id: user.id,
+              job_id,
+              company_name: companyName,
+              job_title: jobData?.title ?? 'Unknown role',
+              job_url: jobData?.apply_url ?? null,
+              logo_url: logoUrl,
+              source: 'rolepulse',
+              stage: 'applied',
+              position: maxPos + 1,
+            })
+        }
+      } catch {
+        // Pipeline auto-tracking must not fail the application
+      }
+    }
+
     return NextResponse.json({ success: true })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal error'

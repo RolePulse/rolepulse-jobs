@@ -4,6 +4,8 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CompanyLogo } from '@/components/CompanyLogo'
+import { getTipsForStage } from '@/lib/pipelineTips'
+import type { Tip } from '@/lib/pipelineTips'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -339,7 +341,12 @@ function CardDetailModal({
   onUpdated: (a: Application) => void
   onDeleted: (id: string) => void
 }) {
-  const [tab, setTab] = useState<'overview' | 'notes'>('overview')
+  const [tab, setTab] = useState<'overview' | 'tips' | 'notes'>('overview')
+  const [hasCv, setHasCv] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/cv/saved').then(r => r.json()).then(j => setHasCv(!!j.hasCv)).catch(() => {})
+  }, [])
   const [followUpDate, setFollowUpDate] = useState(app.follow_up_date ?? '')
   const [followUpNote, setFollowUpNote] = useState(app.follow_up_note ?? '')
   const [newNote, setNewNote] = useState('')
@@ -417,13 +424,13 @@ function CardDetailModal({
           </div>
           {/* Tabs */}
           <div className="flex gap-4 mt-4">
-            {(['overview', 'notes'] as const).map(t => (
+            {(['overview', 'tips', 'notes'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
                 className={`text-sm font-medium pb-1 border-b-2 transition-colors capitalize ${tab === t ? 'border-rp-accent text-rp-accent' : 'border-transparent text-rp-text-3 hover:text-rp-text-2'}`}
               >
-                {t}{t === 'notes' && notes.length > 0 ? ` (${notes.length})` : ''}
+                {t === 'tips' ? '💡 Tips' : t}{t === 'notes' && notes.length > 0 ? ` (${notes.length})` : ''}
               </button>
             ))}
           </div>
@@ -506,6 +513,50 @@ function CardDetailModal({
               </div>
             </div>
           )}
+
+          {tab === 'tips' && (() => {
+            const now = new Date()
+            const created = new Date(app.created_at)
+            const updated = new Date(app.updated_at)
+            const daysSinceCreated = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24))
+            const daysSinceStageChange = Math.floor((now.getTime() - updated.getTime()) / (1000 * 60 * 60 * 24))
+            const tips = getTipsForStage({
+              stage: app.stage,
+              stageDetail: app.stage_detail,
+              matchScore: app.match_score,
+              daysSinceCreated,
+              daysSinceStageChange,
+              hasFollowUp: !!app.follow_up_date,
+              followUpOverdue: isOverdue(app.follow_up_date),
+              hasCv,
+              hasJobUrl: !!app.job_url,
+            })
+            return (
+              <div className="space-y-3">
+                {tips.map((tip: Tip, i: number) => (
+                  <div
+                    key={i}
+                    className={`rounded-xl p-4 border ${
+                      tip.priority === 'high' ? 'border-orange-200 bg-orange-50' :
+                      tip.priority === 'medium' ? 'border-blue-100 bg-blue-50/50' :
+                      'border-rp-border bg-rp-bg'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-lg flex-shrink-0">{tip.icon}</span>
+                      <div>
+                        <p className="text-sm font-semibold text-rp-text-1">{tip.title}</p>
+                        <p className="text-sm text-rp-text-2 mt-1 leading-relaxed">{tip.body}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {tips.length === 0 && (
+                  <p className="text-sm text-rp-text-3 text-center py-4">No tips for this stage.</p>
+                )}
+              </div>
+            )
+          })()}
 
           {tab === 'notes' && (
             <div className="space-y-4">
