@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { CompanyLogo } from '@/components/CompanyLogo'
 import { getTipsForStage } from '@/lib/pipelineTips'
 import type { Tip } from '@/lib/pipelineTips'
+import type { PrepBrief } from '@/lib/interviewPrepBrief'
 
 // ── Follow-Up Template Block ──────────────────────────────────────────
 function FollowUpTemplateBlock({ label, text }: { label: string; text: string }) {
@@ -681,6 +682,99 @@ function CvGapAnalysisPanel({
   )
 }
 
+function InterviewPrepPanel({ app }: { app: Application }) {
+  const [brief, setBrief] = useState<PrepBrief | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(true)
+  const fetchedRef = useRef(false)
+
+  useEffect(() => {
+    if (fetchedRef.current) return
+    fetchedRef.current = true
+    fetch(`/api/pipeline/prep-brief?application_id=${app.id}`)
+      .then(r => r.json())
+      .then(j => { if (j.brief) setBrief(j.brief) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [app.id])
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 flex items-center gap-3">
+        <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm text-rp-text-2">Preparing interview brief…</span>
+      </div>
+    )
+  }
+
+  if (!brief) return null
+
+  return (
+    <div className="rounded-xl border border-indigo-200 bg-indigo-50/30 p-4 space-y-3">
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="flex items-center justify-between w-full"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-base">📋</span>
+          <h3 className="text-sm font-semibold text-rp-text-1">Interview prep brief</h3>
+        </div>
+        <svg
+          className={`w-4 h-4 text-rp-text-3 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {expanded && (
+        <div className="space-y-4 pt-1">
+          {brief.companyOverview && (
+            <div>
+              <p className="text-xs font-medium text-rp-text-2 uppercase tracking-wide mb-1.5">Company</p>
+              <p className="text-sm text-rp-text-1 font-medium">{brief.companyOverview.name}</p>
+              {brief.companyOverview.website && (
+                <a href={brief.companyOverview.website} target="_blank" rel="noopener noreferrer" className="text-xs text-rp-accent hover:underline">
+                  {brief.companyOverview.website}
+                </a>
+              )}
+              {brief.companyOverview.atsProvider && (
+                <p className="text-xs text-rp-text-3 mt-0.5">ATS: {brief.companyOverview.atsProvider}</p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs font-medium text-rp-text-2 uppercase tracking-wide mb-2">Likely questions</p>
+            <div className="space-y-2">
+              {brief.questions.map((q, i) => (
+                <div key={i} className="rounded-lg border border-indigo-100 bg-white p-3">
+                  <p className="text-sm font-medium text-rp-text-1">{q.question}</p>
+                  <p className="text-xs text-rp-text-2 mt-1 leading-relaxed">💡 {q.tip}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {brief.talkingPoints.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-rp-text-2 uppercase tracking-wide mb-1.5">Key talking points</p>
+              <div className="space-y-1.5">
+                {brief.talkingPoints.map((tp, i) => (
+                  <p key={i} className="text-xs text-rp-text-2 flex items-start gap-1.5">
+                    <span className="text-indigo-400 flex-shrink-0 mt-px">→</span>
+                    {tp}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 function CardDetailModal({
   app,
@@ -953,6 +1047,9 @@ function CardDetailModal({
                       onUpdated(updated)
                     }}
                   />
+                )}
+                {(app.stage === 'first_call' || app.stage === 'interviewing') && (
+                  <InterviewPrepPanel app={app} />
                 )}
                 {tips.map((tip: Tip, i: number) => (
                   <div
