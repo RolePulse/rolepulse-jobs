@@ -115,6 +115,14 @@ function BenchmarkPanel({ offerBase, jobTitle }: { offerBase: number; jobTitle: 
 type Stage = 'saved' | 'applied' | 'first_call' | 'interviewing' | 'offer' | 'closed'
 type Source = 'rolepulse' | 'linkedin' | 'referral' | 'other'
 
+interface CvAnalysis {
+  score: number | null
+  detectedRole: string | null
+  matchedKeywords: string[]
+  missingKeywords: string[]
+  flags: string[]
+  scored_at: string
+}
 interface Note {
   text: string
   created_at: string
@@ -140,6 +148,7 @@ interface Application {
   position: number
   created_at: string
   updated_at: string
+  cv_analysis: CvAnalysis | null
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -435,6 +444,192 @@ function AddModal({
 }
 
 // ── Card Detail Modal ──────────────────────────────────────────────────────────
+// ── CV Gap Analysis Panel ─────────────────────────────────────────────────
+
+function CvGapAnalysisPanel({
+  app,
+  onScored,
+}: {
+  app: Application
+  onScored: (analysis: CvAnalysis) => void
+}) {
+  const [analysis, setAnalysis] = useState<CvAnalysis | null>(app.cv_analysis)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [errorCode, setErrorCode] = useState<string | null>(null)
+  const triggeredRef = useRef(false)
+
+  useEffect(() => {
+    if (analysis || triggeredRef.current || !app.job_id) return
+    triggeredRef.current = true
+    runAnalysis()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function runAnalysis() {
+    setLoading(true)
+    setError(null)
+    setErrorCode(null)
+    try {
+      const res = await fetch('/api/pipeline/cv-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_id: app.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error ?? 'Scoring failed')
+        setErrorCode(json.code ?? null)
+        setLoading(false)
+        return
+      }
+      setAnalysis(json.analysis)
+      onScored(json.analysis)
+    } catch {
+      setError('Could not reach scoring service')
+    }
+    setLoading(false)
+  }
+
+  if (!app.job_id) {
+    return (
+      <div className="rounded-xl border border-rp-border bg-rp-bg p-4">
+        <div className="flex items-start gap-3">
+          <span className="text-lg flex-shrink-0">🔗</span>
+          <div>
+            <p className="text-sm font-semibold text-rp-text-1">No linked job listing</p>
+            <p className="text-sm text-rp-text-2 mt-1">This application was added manually. CV gap analysis requires a linked RolePulse job with a description to score against.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 flex items-center gap-3">
+        <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm text-rp-text-2">Analysing your CV against this role…</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    if (errorCode === 'NO_CV') {
+      return (
+        <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+          <div className="flex items-start gap-3">
+            <span className="text-lg flex-shrink-0">📄</span>
+            <div>
+              <p className="text-sm font-semibold text-rp-text-1">Upload your CV first</p>
+              <p className="text-sm text-rp-text-2 mt-1">Go to your profile and upload a CV so we can score your fit for this role.</p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+        <div className="flex items-start gap-3">
+          <span className="text-lg flex-shrink-0">⚠️</span>
+          <div>
+            <p className="text-sm font-semibold text-rp-text-1">Analysis unavailable</p>
+            <p className="text-sm text-rp-text-2 mt-1">{error}</p>
+            <button onClick={runAnalysis} className="text-sm text-rp-accent hover:underline mt-2">Try again</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!analysis) return null
+
+  const scoreColour = analysis.score != null
+    ? analysis.score >= 70 ? 'text-green-600' : analysis.score >= 50 ? 'text-amber-600' : 'text-red-600'
+    : 'text-rp-text-2'
+  const scoreBg = analysis.score != null
+    ? analysis.score >= 70 ? 'bg-green-50 border-green-200' : analysis.score >= 50 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'
+    : 'bg-rp-bg border-rp-border'
+  const scoreLabel = analysis.score != null
+    ? analysis.score >= 70 ? 'Strong match' : analysis.score >= 50 ? 'Partial match' : 'Weak match'
+    : 'No score'
+
+  return (
+    <div className={`rounded-xl border ${scoreBg} p-4 space-y-3`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-base">🎯</span>
+          <h3 className="text-sm font-semibold text-rp-text-1">CV gap analysis</h3>
+        </div>
+        <span className={`text-sm font-bold ${scoreColour}`}>{scoreLabel}</span>
+      </div>
+
+      {analysis.score != null && (
+        <div className="flex items-center gap-3">
+          <div
+            className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0"
+            style={{ backgroundColor: analysis.score >= 70 ? '#16a34a' : analysis.score >= 50 ? '#d97706' : '#dc2626' }}
+          >
+            {analysis.score}
+          </div>
+          <div>
+            <p className="text-sm text-rp-text-2">Match score for <span className="font-medium text-rp-text-1">{app.job_title}</span></p>
+            {analysis.detectedRole && <p className="text-xs text-rp-text-3">Detected role: {analysis.detectedRole}</p>}
+          </div>
+        </div>
+      )}
+
+      {analysis.score != null && (
+        <div className="h-2 bg-white/80 rounded-full overflow-hidden border border-black/5">
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{ width: `${analysis.score}%`, backgroundColor: analysis.score >= 70 ? '#16a34a' : analysis.score >= 50 ? '#d97706' : '#dc2626' }}
+          />
+        </div>
+      )}
+
+      {analysis.missingKeywords.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-rp-text-2 uppercase tracking-wide mb-1.5">⚠ Top missing keywords</p>
+          <div className="flex flex-wrap gap-1.5">
+            {analysis.missingKeywords.slice(0, 3).map(kw => (
+              <span key={kw} className="text-xs bg-orange-50 text-orange-700 border border-orange-200 rounded-full px-2 py-0.5">{kw}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {analysis.matchedKeywords.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-rp-text-2 uppercase tracking-wide mb-1.5">✓ Keywords matched</p>
+          <div className="flex flex-wrap gap-1.5">
+            {analysis.matchedKeywords.slice(0, 6).map(kw => (
+              <span key={kw} className="text-xs bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5">{kw}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {analysis.flags.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-rp-text-2 uppercase tracking-wide">Suggestions</p>
+          {analysis.flags.slice(0, 3).map((flag, i) => (
+            <p key={i} className="text-xs text-rp-text-2 flex items-start gap-1.5">
+              <span className="text-orange-400 flex-shrink-0 mt-px">→</span>
+              {flag}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <p className="text-xs text-rp-text-3">
+        Powered by <a href="https://www.cvpulse.io" target="_blank" rel="noopener noreferrer" className="text-rp-accent hover:underline">CV Pulse</a>
+        {analysis.scored_at && ` · Scored ${new Date(analysis.scored_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`}
+      </p>
+    </div>
+  )
+}
+
 
 function CardDetailModal({
   app,
@@ -690,6 +885,15 @@ function CardDetailModal({
             })
             return (
               <div className="space-y-3">
+                {app.stage === 'saved' && (
+                  <CvGapAnalysisPanel
+                    app={app}
+                    onScored={(analysis) => {
+                      const updated = { ...app, cv_analysis: analysis, match_score: analysis.score }
+                      onUpdated(updated)
+                    }}
+                  />
+                )}
                 {tips.map((tip: Tip, i: number) => (
                   <div
                     key={i}

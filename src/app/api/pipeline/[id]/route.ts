@@ -17,7 +17,7 @@ export async function PATCH(
     'stage', 'stage_detail', 'company_name', 'job_title', 'job_url',
     'source', 'match_score', 'logo_url', 'follow_up_date', 'follow_up_note',
     'notes', 'contacts', 'timeline', 'offer_base', 'offer_ote', 'offer_equity',
-    'position',
+    'position', 'cv_analysis',
   ]
   const patch: Record<string, unknown> = {}
   for (const key of allowed) {
