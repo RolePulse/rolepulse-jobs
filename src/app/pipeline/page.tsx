@@ -1684,21 +1684,73 @@ export default function PipelinePage() {
             <div className="w-6 h-6 border-2 border-rp-accent border-t-transparent rounded-full animate-spin" />
           </div>
         ) : apps.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-16 h-16 bg-rp-bg rounded-2xl flex items-center justify-center mb-4 border border-rp-border">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-rp-text-3">
-                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-              </svg>
+          <div className="max-w-2xl mx-auto py-16 px-4">
+            <div className="text-center mb-10">
+              <div className="w-16 h-16 bg-rp-accent/10 rounded-2xl flex items-center justify-center mb-5 mx-auto">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-rp-accent">
+                  <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-rp-text-1 mb-3">Your job search command centre</h2>
+              <p className="text-rp-text-2 max-w-md mx-auto leading-relaxed">
+                PulsePipeline tracks every application from first save through to offer. Drag cards between stages, set follow-up reminders, and never lose track of where you stand.
+              </p>
             </div>
-            <h2 className="text-lg font-semibold text-rp-text-1 mb-2">Start tracking your applications</h2>
-            <p className="text-sm text-rp-text-2 max-w-sm mb-6">Add applications manually or use the &quot;Track this application&quot; button on any job listing.</p>
-            <button
-              onClick={() => setAddModal({ open: true, stage: 'saved' })}
-              className="px-6 py-3 rounded-full bg-rp-accent text-white font-medium hover:bg-rp-accent-dk transition-colors"
-            >
-              Add your first application
-            </button>
+
+            <div className="bg-white rounded-2xl border border-rp-border p-6 mb-8">
+              <p className="text-xs font-semibold text-rp-text-3 uppercase tracking-wide mb-4">How it works</p>
+              <div className="flex items-center justify-between gap-1 overflow-x-auto pb-2">
+                {STAGES.map((s, i) => (
+                  <div key={s.key} className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex flex-col items-center gap-1.5">
+                      <div className={`w-9 h-9 rounded-lg ${s.colour} flex items-center justify-center`}>
+                        <span className="text-white text-xs font-bold">{i + 1}</span>
+                      </div>
+                      <span className="text-xs text-rp-text-2 font-medium whitespace-nowrap">{s.label}</span>
+                    </div>
+                    {i < STAGES.length - 1 && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-rp-text-3/40 flex-shrink-0 mb-5">
+                        <polyline points="9 6 15 12 9 18" />
+                      </svg>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+              <div className="rounded-xl border border-rp-border bg-white p-4">
+                <span className="text-lg mb-2 block">📋</span>
+                <p className="text-sm font-semibold text-rp-text-1 mb-1">Drag &amp; drop stages</p>
+                <p className="text-xs text-rp-text-3 leading-relaxed">Move cards between columns as your applications progress.</p>
+              </div>
+              <div className="rounded-xl border border-rp-border bg-white p-4">
+                <span className="text-lg mb-2 block">⏰</span>
+                <p className="text-sm font-semibold text-rp-text-1 mb-1">Follow-up reminders</p>
+                <p className="text-xs text-rp-text-3 leading-relaxed">Set dates so you never forget to chase a recruiter.</p>
+              </div>
+              <div className="rounded-xl border border-rp-border bg-white p-4">
+                <span className="text-lg mb-2 block">📊</span>
+                <p className="text-sm font-semibold text-rp-text-1 mb-1">CV match scoring</p>
+                <p className="text-xs text-rp-text-3 leading-relaxed">See how your CV stacks up against each job description.</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={() => setAddModal({ open: true, stage: 'saved' })}
+                className="w-full sm:w-auto px-8 py-3 rounded-full bg-rp-accent text-white font-medium hover:bg-rp-accent-dk transition-colors"
+              >
+                + Add your first application
+              </button>
+              <a
+                href="/jobs"
+                className="w-full sm:w-auto px-8 py-3 rounded-full border border-rp-border text-rp-text-2 font-medium hover:border-rp-text-3 transition-colors text-center"
+              >
+                Browse jobs
+              </a>
+            </div>
           </div>
         ) : viewMode === 'kanban' ? (
           <div className="flex gap-3 overflow-x-auto pb-6">
