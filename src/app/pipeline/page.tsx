@@ -190,6 +190,20 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
+function daysInStage(updatedAt: string): number {
+  const ms = Date.now() - new Date(updatedAt).getTime()
+  return Math.max(0, Math.floor(ms / 86_400_000))
+}
+
+function stageDurationBadge(updatedAt: string) {
+  const days = daysInStage(updatedAt)
+  const colour =
+    days < 5  ? 'text-green-600 bg-green-50' :
+    days <= 14 ? 'text-amber-600 bg-amber-50' :
+                 'text-red-600 bg-red-50'
+  return { days, colour, label: `${days}d` }
+}
+
 // ── Add Application Modal ─────────────────────────────────────────────────────
 
 // ── Add Modal steps ───────────────────────────────────────────────────────────
@@ -1031,6 +1045,7 @@ function KanbanCard({
   onDragStart: (e: React.DragEvent) => void
 }) {
   const overdue = isOverdue(app.follow_up_date)
+  const duration = stageDurationBadge(app.updated_at)
 
   return (
     <div
@@ -1045,11 +1060,16 @@ function KanbanCard({
           <p className="text-sm font-medium text-rp-text-1 leading-snug truncate">{app.job_title}</p>
           <p className="text-xs text-rp-text-2 truncate">{app.company_name}</p>
         </div>
-        {app.match_score != null && (
-          <span className="flex-shrink-0 text-xs font-semibold text-rp-accent bg-orange-50 px-1.5 py-0.5 rounded-full">
-            {app.match_score}%
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${duration.colour}`}>
+            {duration.label}
           </span>
-        )}
+          {app.match_score != null && (
+            <span className="text-xs font-semibold text-rp-accent bg-orange-50 px-1.5 py-0.5 rounded-full">
+              {app.match_score}%
+            </span>
+          )}
+        </div>
       </div>
       <div className="mt-2 flex items-center gap-2 flex-wrap">
         <span className="text-xs text-rp-text-3">{formatDate(app.created_at)}</span>
@@ -1135,6 +1155,7 @@ function ListView({
             <th className="text-left py-3 px-4 text-xs font-medium text-rp-text-3 uppercase tracking-wide">Company</th>
             <th className="text-left py-3 px-4 text-xs font-medium text-rp-text-3 uppercase tracking-wide">Role</th>
             <th className="text-left py-3 px-4 text-xs font-medium text-rp-text-3 uppercase tracking-wide">Stage</th>
+            <th className="text-left py-3 px-4 text-xs font-medium text-rp-text-3 uppercase tracking-wide">Days</th>
             <th className="text-left py-3 px-4 text-xs font-medium text-rp-text-3 uppercase tracking-wide">Match</th>
             <th className="text-left py-3 px-4 text-xs font-medium text-rp-text-3 uppercase tracking-wide">Follow-up</th>
             <th className="text-left py-3 px-4 text-xs font-medium text-rp-text-3 uppercase tracking-wide">Added</th>
@@ -1158,6 +1179,11 @@ function ListView({
                 <td className="py-3 px-4 text-rp-text-2">{app.job_title}</td>
                 <td className="py-3 px-4">
                   <span className="text-xs font-medium text-rp-text-2">{stageMap[app.stage] ?? app.stage}</span>
+                </td>
+                <td className="py-3 px-4">
+                  {(() => { const d = stageDurationBadge(app.updated_at); return (
+                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${d.colour}`}>{d.label}</span>
+                  ) })()}
                 </td>
                 <td className="py-3 px-4">
                   {app.match_score != null ? (
@@ -1266,6 +1292,8 @@ export default function PipelinePage() {
   const offers = apps.filter(a => a.stage === 'offer').length
   const scored = apps.filter(a => a.match_score != null)
   const avgScore = scored.length > 0 ? Math.round(scored.reduce((s, a) => s + (a.match_score ?? 0), 0) / scored.length) : null
+  const activeApps = apps.filter(a => a.stage !== 'closed')
+  const avgDays = activeApps.length > 0 ? Math.round(activeApps.reduce((s, a) => s + daysInStage(a.updated_at), 0) / activeApps.length) : null
 
   return (
     <div className="min-h-screen bg-rp-bg">
@@ -1281,6 +1309,7 @@ export default function PipelinePage() {
                   {interviews > 0 ? ` · ${interviews} interview${interviews > 1 ? 's' : ''}` : ''}
                   {offers > 0 ? ` · ${offers} offer${offers > 1 ? 's' : ''}` : ''}
                   {avgScore != null ? ` · Avg match ${avgScore}%` : ''}
+                  {avgDays != null ? ` · Avg ${avgDays}d in stage` : ''}
                 </p>
               )}
             </div>
