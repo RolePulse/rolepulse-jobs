@@ -658,7 +658,7 @@ export default function JobPage() {
           >
             {applyLabel}
           </a>
-          <SaveJobButton jobId={job.id} />
+          <SaveJobButton jobId={job.id} companyName={company?.name ?? ''} jobTitle={job.title} jobUrl={job.apply_url ?? undefined} logoUrl={company?.logo_url ?? undefined} />
           <TrackApplicationButton
             jobId={job.id}
             jobTitle={job.title}
@@ -743,7 +743,7 @@ export default function JobPage() {
 
                 {/* Save role button */}
                 <div className="[&_button]:rounded-full [&_button]:transition-all [&_button:not([disabled])]:hover:border-[#374151]">
-                  <SaveJobButton jobId={job.id} />
+                  <SaveJobButton jobId={job.id} companyName={company?.name ?? ''} jobTitle={job.title} jobUrl={job.apply_url ?? undefined} logoUrl={company?.logo_url ?? undefined} />
                 </div>
 
                 {/* Track application button */}

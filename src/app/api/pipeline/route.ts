@@ -34,6 +34,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'company_name and job_title are required' }, { status: 400 })
   }
 
+  // Duplicate guard: if this job is already in the pipeline, return existing entry
+  if (job_id) {
+    const { data: existing } = await supabase
+      .schema('jobs')
+      .from('pipeline_applications')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('job_id', job_id)
+      .maybeSingle()
+
+    if (existing) {
+      return NextResponse.json({ application: existing })
+    }
+  }
+
   // Get max position for this stage so new card goes to bottom
   const { data: existing } = await supabase
     .schema('jobs')

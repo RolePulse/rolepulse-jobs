@@ -4,10 +4,20 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export function SaveJobButton({ jobId }: { jobId: string }) {
+interface SaveJobButtonProps {
+  jobId: string
+  companyName?: string
+  jobTitle?: string
+  jobUrl?: string
+  logoUrl?: string
+}
+
+export function SaveJobButton({ jobId, companyName, jobTitle, jobUrl, logoUrl }: SaveJobButtonProps) {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+  const [pipelineEntryId, setPipelineEntryId] = useState<string | null>(null)
+  const [pipelineStage, setPipelineStage] = useState<string | null>(null)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -31,6 +41,22 @@ export function SaveJobButton({ jobId }: { jobId: string }) {
         .maybeSingle()
 
       setSaved(!!data)
+
+      // Check for existing pipeline entry
+      try {
+        const res = await fetch('/api/pipeline')
+        if (res.ok) {
+          const json = await res.json()
+          const entry = json.applications?.find((a: { job_id: string }) => a.job_id === jobId)
+          if (entry) {
+            setPipelineEntryId(entry.id)
+            setPipelineStage(entry.stage)
+          }
+        }
+      } catch {
+        // Non-fatal
+      }
+
       setLoading(false)
     }
 
@@ -56,16 +82,61 @@ export function SaveJobButton({ jobId }: { jobId: string }) {
         if (!existing) {
           await supabase.from('saved_jobs').insert({ user_id: user.id, job_id: jobId })
           setSaved(true)
+
+          // Also create pipeline entry
+          if (companyName && jobTitle) {
+            await createPipelineEntry()
+          }
         }
       }
     }
 
     handlePendingSave()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, pathname])
+
+  async function createPipelineEntry() {
+    try {
+      const res = await fetch('/api/pipeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: jobId,
+          company_name: companyName,
+          job_title: jobTitle,
+          job_url: jobUrl ?? null,
+          logo_url: logoUrl ?? null,
+          source: 'rolepulse',
+          stage: 'saved',
+        }),
+      })
+      if (res.ok) {
+        const json = await res.json()
+        if (json.application) {
+          setPipelineEntryId(json.application.id)
+          setPipelineStage(json.application.stage)
+        }
+      }
+    } catch {
+      // Non-fatal: pipeline sync failing shouldn't block save
+    }
+  }
+
+  async function removePipelineEntry() {
+    // Only remove if entry exists and is still at 'saved' stage
+    // Don't remove entries the user has advanced (applied, interviewing, etc.)
+    if (!pipelineEntryId || pipelineStage !== 'saved') return
+    try {
+      await fetch(`/api/pipeline/${pipelineEntryId}`, { method: 'DELETE' })
+      setPipelineEntryId(null)
+      setPipelineStage(null)
+    } catch {
+      // Non-fatal
+    }
+  }
 
   async function handleToggle() {
     if (!userId) {
-      // Save slug to sessionStorage, redirect to sign-up with return URL
       const slug = pathname?.split('/jobs/')[1] || ''
       if (slug) {
         sessionStorage.setItem('pending_save_slug', slug)
@@ -83,11 +154,17 @@ export function SaveJobButton({ jobId }: { jobId: string }) {
         .eq('user_id', userId)
         .eq('job_id', jobId)
       setSaved(false)
+
+      await removePipelineEntry()
     } else {
       await supabase
         .from('saved_jobs')
         .insert({ user_id: userId, job_id: jobId })
       setSaved(true)
+
+      if (companyName && jobTitle) {
+        await createPipelineEntry()
+      }
     }
   }
 
