@@ -1,3 +1,5 @@
+import { getFollowUpTemplate, type FollowUpTemplate } from './followUpTemplates'
+
 type Stage = 'saved' | 'applied' | 'first_call' | 'interviewing' | 'offer' | 'closed'
 
 export interface Tip {
@@ -5,9 +7,10 @@ export interface Tip {
   title: string
   body: string
   priority: 'high' | 'medium' | 'low'
+  template?: FollowUpTemplate
 }
 
-interface TipContext {
+export interface TipContext {
   stage: Stage
   stageDetail?: string | null
   matchScore?: number | null
@@ -17,6 +20,8 @@ interface TipContext {
   followUpOverdue: boolean
   hasCv: boolean
   hasJobUrl: boolean
+  jobTitle?: string
+  companyName?: string
 }
 
 function savedTips(ctx: TipContext): Tip[] {
@@ -84,8 +89,11 @@ function appliedTips(ctx: TipContext): Tip[] {
     tips.push({
       icon: '📧',
       title: 'Time to follow up',
-      body: 'It\'s been ' + ctx.daysSinceStageChange + ' days since you applied. Send a short follow-up to the recruiter or hiring manager. Keep it to 3 sentences: remind them you applied, restate your interest, ask about timeline.',
+      body: 'It\'s been ' + ctx.daysSinceStageChange + ' days since you applied. Send a short follow-up to the recruiter or hiring manager. Here\'s a template you can copy and personalise.',
       priority: 'high',
+      template: ctx.jobTitle && ctx.companyName
+        ? getFollowUpTemplate('applied_followup', ctx.jobTitle, ctx.companyName)
+        : undefined,
     })
   }
 
@@ -110,8 +118,8 @@ function appliedTips(ctx: TipContext): Tip[] {
   return tips
 }
 
-function firstCallTips(_ctx: TipContext): Tip[] {
-  return [
+function firstCallTips(ctx: TipContext): Tip[] {
+  const tips: Tip[] = [
     {
       icon: '🎤',
       title: 'Prep your 90-second pitch',
@@ -131,6 +139,20 @@ function firstCallTips(_ctx: TipContext): Tip[] {
       priority: 'medium',
     },
   ]
+
+  if (ctx.daysSinceStageChange >= 3 && !ctx.hasFollowUp) {
+    tips.push({
+      icon: '✉️',
+      title: 'Send a thank-you note',
+      body: 'It\'s been ' + ctx.daysSinceStageChange + ' days since the first call. If you haven\'t already, send a thank-you that references something specific from the conversation.',
+      priority: 'high',
+      template: ctx.jobTitle && ctx.companyName
+        ? getFollowUpTemplate('first_call_thanks', ctx.jobTitle, ctx.companyName)
+        : undefined,
+    })
+  }
+
+  return tips
 }
 
 function interviewingTips(ctx: TipContext): Tip[] {
@@ -149,12 +171,15 @@ function interviewingTips(ctx: TipContext): Tip[] {
     },
   ]
 
-  if (ctx.daysSinceStageChange > 7) {
+  if (ctx.daysSinceStageChange > 7 && !ctx.hasFollowUp) {
     tips.push({
       icon: '📧',
       title: 'Check in on next steps',
-      body: 'It\'s been ' + ctx.daysSinceStageChange + ' days in the interview stage. Send a brief check-in: thank them for the last conversation and ask about the timeline for next steps.',
+      body: 'It\'s been ' + ctx.daysSinceStageChange + ' days in the interview stage. Send a brief check-in to keep the momentum going.',
       priority: 'medium',
+      template: ctx.jobTitle && ctx.companyName
+        ? getFollowUpTemplate('interview_checkin', ctx.jobTitle, ctx.companyName)
+        : undefined,
     })
   }
 

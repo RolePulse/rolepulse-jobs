@@ -7,7 +7,26 @@ import { CompanyLogo } from '@/components/CompanyLogo'
 import { getTipsForStage } from '@/lib/pipelineTips'
 import type { Tip } from '@/lib/pipelineTips'
 
-// ── Salary Benchmark Panel ───────────────────────────────────────────────────
+// ── Follow-Up Template Block ──────────────────────────────────────────
+function FollowUpTemplateBlock({ label, text }: { label: string; text: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <div className="mt-3 rounded-lg border border-rp-border bg-white p-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold text-rp-text-2 uppercase tracking-wide">{label}</span>
+        <button
+          onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+          className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
+        >
+          {copied ? '✓ Copied' : '📋 Copy'}
+        </button>
+      </div>
+      <p className="text-sm text-rp-text-1 leading-relaxed whitespace-pre-wrap">{text}</p>
+    </div>
+  )
+}
+
+// ── Salary Benchmark Panel ────────────────────────────────────────────
 
 interface BenchmarkData {
   position: 'below' | 'at' | 'above'
@@ -606,7 +625,7 @@ function CvGapAnalysisPanel({
           </div>
           <div>
             <p className="text-sm text-rp-text-2">Match score for <span className="font-medium text-rp-text-1">{app.job_title}</span></p>
-            {analysis.detectedRole && <p className="text-xs text-rp-text-3">Detected role: {analysis.detectedRole}</p>}
+            {analysis.detectedRole && <p className="text-xs text-rp-text-3 mt-1">Detected role: {analysis.detectedRole}</p>}
           </div>
         </div>
       )}
@@ -921,6 +940,8 @@ function CardDetailModal({
               followUpOverdue: isOverdue(app.follow_up_date),
               hasCv,
               hasJobUrl: !!app.job_url,
+              jobTitle: app.job_title,
+              companyName: app.company_name,
             })
             return (
               <div className="space-y-3">
@@ -944,9 +965,12 @@ function CardDetailModal({
                   >
                     <div className="flex items-start gap-3">
                       <span className="text-lg mt-0.5">{tip.icon}</span>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-rp-text-1">{tip.title}</p>
                         <p className="text-sm text-rp-text-2 mt-1 leading-relaxed">{tip.body}</p>
+                        {tip.template && (
+                          <FollowUpTemplateBlock label={tip.template.label} text={tip.template.text} />
+                        )}
                       </div>
                     </div>
                   </div>
