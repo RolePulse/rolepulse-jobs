@@ -128,6 +128,13 @@ interface Note {
   created_at: string
 }
 
+interface TimelineEvent {
+  type: 'stage_change' | 'note_added' | 'contact_added' | 'follow_up_set' | 'follow_up_completed'
+  from?: string
+  to?: string
+  created_at: string
+}
+
 interface Application {
   id: string
   job_id: string | null
@@ -149,6 +156,7 @@ interface Application {
   created_at: string
   updated_at: string
   cv_analysis: CvAnalysis | null
+  timeline: TimelineEvent[]
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -642,7 +650,7 @@ function CardDetailModal({
   onUpdated: (a: Application) => void
   onDeleted: (id: string) => void
 }) {
-  const [tab, setTab] = useState<'overview' | 'tips' | 'notes'>('overview')
+  const [tab, setTab] = useState<'overview' | 'tips' | 'notes' | 'timeline'>('overview')
   const [hasCv, setHasCv] = useState(false)
 
   useEffect(() => {
@@ -652,6 +660,7 @@ function CardDetailModal({
   const [followUpNote, setFollowUpNote] = useState(app.follow_up_note ?? '')
   const [newNote, setNewNote] = useState('')
   const [notes, setNotes] = useState<Note[]>(app.notes ?? [])
+  const [timeline, setTimeline] = useState<TimelineEvent[]>(app.timeline ?? [])
   const [stage, setStage] = useState<Stage>(app.stage)
   const [stageDetail, setStageDetail] = useState(app.stage_detail ?? '')
   const [offerBase, setOfferBase] = useState<string>(app.offer_base != null ? String(app.offer_base) : '')
@@ -678,6 +687,7 @@ function CardDetailModal({
     })
     if (res.ok) {
       const json = await res.json()
+      if (json.application.timeline) setTimeline(json.application.timeline)
       onUpdated(json.application)
     }
     setSaving(false)
@@ -699,6 +709,7 @@ function CardDetailModal({
       setNotes(updatedNotes)
       setNewNote('')
       const json = await res.json()
+      if (json.application.timeline) setTimeline(json.application.timeline)
       onUpdated(json.application)
     }
     setAddingNote(false)
@@ -950,6 +961,58 @@ function CardDetailModal({
               </div>
             </div>
           )}
+
+          {tab === 'timeline' && (
+            <div className="space-y-1">
+              {timeline.length === 0 && (
+                <p className="text-sm text-rp-text-3 text-center py-4">No activity yet. Events are logged automatically as you update this application.</p>
+              )}
+              <div className="relative">
+                {timeline.length > 0 && <div className="absolute left-[15px] top-3 bottom-3 w-px bg-rp-border" />}
+                <div className="space-y-3">
+                  {[...timeline].reverse().map((evt, i) => {
+                    const stageLabel = (s: string) => {
+                      const found = STAGES.find(st => st.key === s)
+                      return found ? found.label : s
+                    }
+                    let icon = '\u25CB'
+                    let text = ''
+                    switch (evt.type) {
+                      case 'stage_change':
+                        icon = '\u2192'
+                        text = `Moved from ${stageLabel(evt.from ?? '')} to ${stageLabel(evt.to ?? '')}`
+                        break
+                      case 'note_added':
+                        icon = '\u270F\uFE0F'
+                        text = 'Note added'
+                        break
+                      case 'contact_added':
+                        icon = '\uD83D\uDC64'
+                        text = 'Contact added'
+                        break
+                      case 'follow_up_set':
+                        icon = '\u23F0'
+                        text = 'Follow-up scheduled'
+                        break
+                      case 'follow_up_completed':
+                        icon = '\u2705'
+                        text = 'Follow-up completed'
+                        break
+                    }
+                    return (
+                      <div key={i} className="flex items-start gap-3 relative">
+                        <span className="w-[30px] h-[30px] rounded-full bg-white border border-rp-border flex items-center justify-center text-sm flex-shrink-0 z-10">{icon}</span>
+                        <div className="pt-1">
+                          <p className="text-sm text-rp-text-1">{text}</p>
+                          <p className="text-xs text-rp-text-3 mt-0.5">{new Date(evt.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1171,13 +1234,18 @@ export default function PipelinePage() {
     // Optimistic update
     setApps(prev => prev.map(a => a.id === id ? { ...a, stage: toStage } : a))
 
-    await fetch(`/api/pipeline/${id}`, {
+    const res = await fetch(`/api/pipeline/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage: toStage }),
     })
+    if (res.ok) {
+      const json = await res.json()
+      setApps(prev => prev.map(a => a.id === json.application.id ? json.application : a))
+      if (detailApp?.id === json.application.id) setDetailApp(json.application)
+    }
     dragRef.current = null
-  }, [])
+  }, [detailApp])
 
   function handleCardUpdated(updated: Application) {
     setApps(prev => prev.map(a => a.id === updated.id ? updated : a))
