@@ -31,6 +31,9 @@ interface Application {
   follow_up_date: string | null
   follow_up_note: string | null
   notes: Note[]
+  offer_base: number | null
+  offer_ote: number | null
+  offer_equity: string | null
   position: number
   created_at: string
   updated_at: string
@@ -353,6 +356,9 @@ function CardDetailModal({
   const [notes, setNotes] = useState<Note[]>(app.notes ?? [])
   const [stage, setStage] = useState<Stage>(app.stage)
   const [stageDetail, setStageDetail] = useState(app.stage_detail ?? '')
+  const [offerBase, setOfferBase] = useState<string>(app.offer_base != null ? String(app.offer_base) : '')
+  const [offerOte, setOfferOte] = useState<string>(app.offer_ote != null ? String(app.offer_ote) : '')
+  const [offerEquity, setOfferEquity] = useState(app.offer_equity ?? '')
   const [saving, setSaving] = useState(false)
   const [addingNote, setAddingNote] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -367,6 +373,9 @@ function CardDetailModal({
         stage_detail: stageDetail || null,
         follow_up_date: followUpDate || null,
         follow_up_note: followUpNote || null,
+        offer_base: offerBase ? Number(offerBase) : null,
+        offer_ote: offerOte ? Number(offerOte) : null,
+        offer_equity: offerEquity || null,
       }),
     })
     if (res.ok) {
@@ -495,6 +504,50 @@ function CardDetailModal({
                   placeholder="e.g. Chase recruiter"
                 />
               </div>
+              {stage === 'offer' && (
+                <div className="rounded-xl border border-green-200 bg-green-50/50 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">💰</span>
+                    <h3 className="text-sm font-semibold text-rp-text-1">Offer details</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-rp-text-3 mb-1 uppercase tracking-wide">Base salary</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-rp-text-3">£</span>
+                        <input
+                          type="number"
+                          className="w-full border border-rp-border rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+                          value={offerBase} onChange={e => setOfferBase(e.target.value)}
+                          placeholder="60,000"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-rp-text-3 mb-1 uppercase tracking-wide">OTE / Total comp</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-rp-text-3">£</span>
+                        <input
+                          type="number"
+                          className="w-full border border-rp-border rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+                          value={offerOte} onChange={e => setOfferOte(e.target.value)}
+                          placeholder="90,000"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-rp-text-3 mb-1 uppercase tracking-wide">Equity</label>
+                    <input
+                      type="text"
+                      className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+                      value={offerEquity} onChange={e => setOfferEquity(e.target.value)}
+                      placeholder="e.g. 0.1% over 4 years"
+                    />
+                  </div>
+                  <p className="text-xs text-rp-text-3">All fields optional — fill in what you have.</p>
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={saveOverview}
