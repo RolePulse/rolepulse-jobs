@@ -1376,33 +1376,22 @@ function KanbanCard({
   app,
   onClick,
   onDragStart,
-  selectMode,
-  selected,
-  onToggleSelect,
 }: {
   app: Application
   onClick: () => void
   onDragStart: (e: React.DragEvent) => void
-  selectMode?: boolean
-  selected?: boolean
-  onToggleSelect?: (id: string) => void
 }) {
   const overdue = isOverdue(app.follow_up_date)
   const duration = stageDurationBadge(app.updated_at)
 
   return (
     <div
-      draggable={!selectMode}
-      onDragStart={selectMode ? undefined : onDragStart}
-      onClick={selectMode ? () => onToggleSelect?.(app.id) : onClick}
-      className={`bg-white rounded-xl border p-3 cursor-pointer hover:shadow-sm transition-all select-none ${selected ? 'border-rp-accent bg-orange-50/40 ring-1 ring-rp-accent/30' : 'border-rp-border hover:border-rp-accent/40'}`}
+      draggable
+      onDragStart={onDragStart}
+      onClick={onClick}
+      className="bg-white rounded-xl border border-rp-border p-3 cursor-pointer hover:border-rp-accent/40 hover:shadow-sm transition-all select-none"
     >
       <div className="flex items-start gap-2">
-        {selectMode && (
-          <div className={`w-4 h-4 mt-1 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${selected ? 'bg-rp-accent border-rp-accent' : 'border-rp-border'}`}>
-            {selected && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
-          </div>
-        )}
         <CompanyLogo src={app.logo_url} name={app.company_name} size={28} useHashColour className="mt-0.5 flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-rp-text-1 leading-snug truncate">{app.job_title}</p>
@@ -1441,10 +1430,6 @@ function KanbanColumn({
   onDragOver,
   onDrop,
   onAddClick,
-  selectMode,
-  selectedIds,
-  onToggleSelect,
-  onSelectAll,
 }: {
   stage: { key: Stage; label: string; colour: string }
   apps: Application[]
@@ -1453,10 +1438,6 @@ function KanbanColumn({
   onDragOver: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent, toStage: Stage) => void
   onAddClick: (stage: Stage) => void
-  selectMode?: boolean
-  selectedIds?: Set<string>
-  onToggleSelect?: (id: string) => void
-  onSelectAll?: (stage: Stage) => void
 }) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -1468,16 +1449,6 @@ function KanbanColumn({
       onDrop={e => { setIsDragOver(false); onDrop(e, stage.key) }}
     >
       <div className="px-3 pt-3 pb-2 flex items-center gap-2">
-        {selectMode && apps.length > 0 && (
-          <button
-            onClick={() => onSelectAll?.(stage.key)}
-            className={`w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-              apps.length > 0 && apps.every(a => selectedIds?.has(a.id)) ? 'bg-rp-accent border-rp-accent' : 'border-rp-border hover:border-rp-accent/60'
-            }`}
-          >
-            {apps.length > 0 && apps.every(a => selectedIds?.has(a.id)) && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
-          </button>
-        )}
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stage.colour}`} />
         <span className="text-xs font-semibold text-rp-text-2 uppercase tracking-wide">{stage.label}</span>
         <span className="ml-auto text-xs text-rp-text-3 font-medium">{apps.length}</span>
@@ -1489,9 +1460,6 @@ function KanbanColumn({
             app={app}
             onClick={() => onCardClick(app)}
             onDragStart={e => onDragStart(e, app.id, app.stage)}
-            selectMode={selectMode}
-            selected={selectedIds?.has(app.id)}
-            onToggleSelect={onToggleSelect}
           />
         ))}
         <button
@@ -1510,15 +1478,9 @@ function KanbanColumn({
 function ListView({
   apps,
   onCardClick,
-  selectMode,
-  selectedIds,
-  onToggleSelect,
 }: {
   apps: Application[]
   onCardClick: (app: Application) => void
-  selectMode?: boolean
-  selectedIds?: Set<string>
-  onToggleSelect?: (id: string) => void
 }) {
   const stageMap = Object.fromEntries(STAGES.map(s => [s.key, s.label]))
 
@@ -1527,7 +1489,6 @@ function ListView({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-rp-border">
-            {selectMode && <th className="py-3 px-3 w-8" />}
             <th className="text-left py-3 px-4 text-xs font-medium text-rp-text-3 uppercase tracking-wide">Company</th>
             <th className="text-left py-3 px-4 text-xs font-medium text-rp-text-3 uppercase tracking-wide">Role</th>
             <th className="text-left py-3 px-4 text-xs font-medium text-rp-text-3 uppercase tracking-wide">Stage</th>
@@ -1543,16 +1504,9 @@ function ListView({
             return (
               <tr
                 key={app.id}
-                onClick={() => selectMode ? onToggleSelect?.(app.id) : onCardClick(app)}
-                className={`border-b border-rp-border/50 cursor-pointer transition-colors ${selectedIds?.has(app.id) ? 'bg-orange-50/60' : 'hover:bg-rp-bg'}`}
+                onClick={() => onCardClick(app)}
+                className="border-b border-rp-border/50 hover:bg-rp-bg cursor-pointer transition-colors"
               >
-                {selectMode && (
-                  <td className="py-3 px-3">
-                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${selectedIds?.has(app.id) ? 'bg-rp-accent border-rp-accent' : 'border-rp-border'}`}>
-                      {selectedIds?.has(app.id) && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
-                    </div>
-                  </td>
-                )}
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-2">
                     <CompanyLogo src={app.logo_url} name={app.company_name} size={24} useHashColour />
@@ -1599,10 +1553,6 @@ export default function PipelinePage() {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [addModal, setAddModal] = useState<{ open: boolean; stage: Stage }>({ open: false, stage: 'saved' })
   const [detailApp, setDetailApp] = useState<Application | null>(null)
-  const [selectMode, setSelectMode] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [bulkConfirm, setBulkConfirm] = useState<{ action: 'archive' | 'stage'; stage?: Stage } | null>(null)
-  const [bulkSaving, setBulkSaving] = useState(false)
   const dragRef = useRef<{ id: string; fromStage: Stage } | null>(null)
 
   // Mobile: auto-switch to list
@@ -1673,56 +1623,6 @@ export default function PipelinePage() {
     setApps(prev => [...prev, app])
   }
 
-  function toggleSelect(id: string) {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  function selectAllInStage(stage: Stage) {
-    const stageIds = apps.filter(a => a.stage === stage).map(a => a.id)
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      const allSelected = stageIds.every(id => next.has(id))
-      if (allSelected) stageIds.forEach(id => next.delete(id))
-      else stageIds.forEach(id => next.add(id))
-      return next
-    })
-  }
-
-  async function executeBulkAction(stage: Stage, stageDetail?: string) {
-    if (selectedIds.size === 0) return
-    setBulkSaving(true)
-    try {
-      const res = await fetch('/api/pipeline/bulk', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ids: Array.from(selectedIds),
-          stage,
-          stage_detail: stageDetail ?? null,
-        }),
-      })
-      if (res.ok) {
-        const json = await res.json()
-        const updatedMap = new Map<string, Application>(json.applications.map((a: Application) => [a.id, a]))
-        setApps(prev => prev.map(a => updatedMap.get(a.id) ?? a))
-        setSelectedIds(new Set())
-        setSelectMode(false)
-      }
-    } catch {}
-    setBulkSaving(false)
-    setBulkConfirm(null)
-  }
-
-  function exitSelectMode() {
-    setSelectMode(false)
-    setSelectedIds(new Set())
-  }
-
   // Summary stats
   const active = apps.filter(a => a.stage !== 'closed').length
   const interviews = apps.filter(a => a.stage === 'interviewing').length
@@ -1751,13 +1651,6 @@ export default function PipelinePage() {
               )}
             </div>
             <div className="flex items-center gap-3">
-              {/* Select mode toggle */}
-              <button
-                onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${selectMode ? 'bg-orange-500 text-white' : 'bg-white/10 text-zinc-400 hover:text-white'}`}
-              >
-                {selectMode ? `${selectedIds.size} selected · Exit` : '☐ Select'}
-              </button>
               {/* View toggle */}
               <div className="hidden md:flex bg-white/10 rounded-lg p-0.5">
                 <button
@@ -1783,74 +1676,6 @@ export default function PipelinePage() {
           </div>
         </div>
       </div>
-
-      {/* Bulk action bar */}
-      {selectMode && selectedIds.size > 0 && (
-        <div className="bg-white border-b border-rp-border px-6 py-3 flex items-center gap-3 flex-wrap">
-          <span className="text-sm font-medium text-rp-text-1">{selectedIds.size} selected</span>
-          <div className="h-4 w-px bg-rp-border" />
-          <select
-            className="border border-rp-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-rp-accent"
-            defaultValue=""
-            onChange={e => {
-              const val = e.target.value as Stage
-              if (val) setBulkConfirm({ action: 'stage', stage: val })
-              e.target.value = ''
-            }}
-          >
-            <option value="" disabled>Move to stage…</option>
-            {STAGES.filter(s => s.key !== 'closed').map(s => (
-              <option key={s.key} value={s.key}>{s.label}</option>
-            ))}
-          </select>
-          <button
-            onClick={() => setBulkConfirm({ action: 'archive' })}
-            className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors"
-          >
-            Archive selected
-          </button>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="ml-auto text-sm text-rp-text-3 hover:text-rp-text-1 transition-colors"
-          >
-            Clear selection
-          </button>
-        </div>
-      )}
-
-      {/* Bulk confirm dialog */}
-      {bulkConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setBulkConfirm(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-rp-text-1 mb-2">
-              {bulkConfirm.action === 'archive' ? 'Archive applications?' : `Move to ${STAGES.find(s => s.key === bulkConfirm.stage)?.label}?`}
-            </h3>
-            <p className="text-sm text-rp-text-2 mb-5">
-              This will {bulkConfirm.action === 'archive' ? 'archive' : 'move'} {selectedIds.size} application{selectedIds.size > 1 ? 's' : ''}{bulkConfirm.action === 'archive' ? ' to Closed (Withdrew)' : ''}.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setBulkConfirm(null)}
-                className="flex-1 py-2 rounded-lg border border-rp-border text-sm text-rp-text-2 hover:border-rp-text-3 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => executeBulkAction(
-                  bulkConfirm.action === 'archive' ? 'closed' : bulkConfirm.stage!,
-                  bulkConfirm.action === 'archive' ? 'withdrew' : undefined
-                )}
-                disabled={bulkSaving}
-                className={`flex-1 py-2 rounded-lg text-white text-sm font-medium transition-colors disabled:opacity-50 ${
-                  bulkConfirm.action === 'archive' ? 'bg-red-500 hover:bg-red-600' : 'bg-rp-accent hover:bg-rp-accent-dk'
-                }`}
-              >
-                {bulkSaving ? 'Processing…' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Content */}
       <div className="px-4 md:px-6 py-6">
@@ -1939,16 +1764,12 @@ export default function PipelinePage() {
                 onDragOver={e => e.preventDefault()}
                 onDrop={handleDrop}
                 onAddClick={s => setAddModal({ open: true, stage: s })}
-                selectMode={selectMode}
-                selectedIds={selectedIds}
-                onToggleSelect={toggleSelect}
-                onSelectAll={selectAllInStage}
               />
             ))}
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-rp-border overflow-hidden">
-            <ListView apps={apps} onCardClick={setDetailApp} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
+            <ListView apps={apps} onCardClick={setDetailApp} />
           </div>
         )}
       </div>
