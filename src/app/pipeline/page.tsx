@@ -109,7 +109,6 @@ function BenchmarkPanel({ offerBase, jobTitle }: { offerBase: number; jobTitle: 
     </div>
   )
 }
-
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type Stage = 'saved' | 'applied' | 'first_call' | 'interviewing' | 'offer' | 'closed'
@@ -125,6 +124,16 @@ interface CvAnalysis {
 }
 interface Note {
   text: string
+  created_at: string
+}
+
+interface Contact {
+  name: string
+  role: 'recruiter' | 'hiring_manager' | 'other'
+  email?: string
+  phone?: string
+  linkedin_url?: string
+  notes?: string
   created_at: string
 }
 
@@ -149,6 +158,7 @@ interface Application {
   follow_up_date: string | null
   follow_up_note: string | null
   notes: Note[]
+  contacts: Contact[]
   offer_base: number | null
   offer_ote: number | null
   offer_equity: string | null
@@ -664,7 +674,7 @@ function CardDetailModal({
   onUpdated: (a: Application) => void
   onDeleted: (id: string) => void
 }) {
-  const [tab, setTab] = useState<'overview' | 'tips' | 'notes' | 'timeline'>('overview')
+  const [tab, setTab] = useState<'overview' | 'tips' | 'notes' | 'contacts' | 'timeline'>('overview')
   const [hasCv, setHasCv] = useState(false)
 
   useEffect(() => {
@@ -674,6 +684,10 @@ function CardDetailModal({
   const [followUpNote, setFollowUpNote] = useState(app.follow_up_note ?? '')
   const [newNote, setNewNote] = useState('')
   const [notes, setNotes] = useState<Note[]>(app.notes ?? [])
+  const [contacts, setContacts] = useState<Contact[]>(app.contacts ?? [])
+  const [editingContact, setEditingContact] = useState<number | null>(null)
+  const [contactForm, setContactForm] = useState<Partial<Contact>>({})
+  const [savingContact, setSavingContact] = useState(false)
   const [timeline, setTimeline] = useState<TimelineEvent[]>(app.timeline ?? [])
   const [stage, setStage] = useState<Stage>(app.stage)
   const [stageDetail, setStageDetail] = useState(app.stage_detail ?? '')
@@ -756,13 +770,13 @@ function CardDetailModal({
           </div>
           {/* Tabs */}
           <div className="flex gap-4 mt-4">
-            {(['overview', 'tips', 'notes'] as const).map(t => (
+            {(['overview', 'tips', 'notes', 'contacts'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
                 className={`text-sm font-medium pb-1 border-b-2 transition-colors capitalize ${tab === t ? 'border-rp-accent text-rp-accent' : 'border-transparent text-rp-text-3 hover:text-rp-text-2'}`}
               >
-                {t === 'tips' ? '💡 Tips' : t}{t === 'notes' && notes.length > 0 ? ` (${notes.length})` : ''}
+                {t === 'tips' ? '💡 Tips' : t === 'contacts' ? `👤 Contacts${contacts.length > 0 ? ` (${contacts.length})` : ''}` : t}{t === 'notes' && notes.length > 0 ? ` (${notes.length})` : ''}
               </button>
             ))}
           </div>
@@ -929,7 +943,7 @@ function CardDetailModal({
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-lg flex-shrink-0">{tip.icon}</span>
+                      <span className="text-lg mt-0.5">{tip.icon}</span>
                       <div>
                         <p className="text-sm font-semibold text-rp-text-1">{tip.title}</p>
                         <p className="text-sm text-rp-text-2 mt-1 leading-relaxed">{tip.body}</p>
@@ -975,6 +989,189 @@ function CardDetailModal({
               </div>
             </div>
           )}
+
+          {tab === 'contacts' && (() => {
+            const ROLES: { key: Contact['role']; label: string }[] = [
+              { key: 'recruiter', label: 'Recruiter' },
+              { key: 'hiring_manager', label: 'Hiring Manager' },
+              { key: 'other', label: 'Other' },
+            ]
+            function resetForm() {
+              setContactForm({})
+              setEditingContact(null)
+            }
+            function startEdit(idx: number) {
+              setEditingContact(idx)
+              setContactForm({ ...contacts[idx] })
+            }
+            async function saveContact() {
+              if (!contactForm.name?.trim() || !contactForm.role) return
+              setSavingContact(true)
+              const entry: Contact = {
+                name: contactForm.name.trim(),
+                role: contactForm.role,
+                email: contactForm.email?.trim() || undefined,
+                phone: contactForm.phone?.trim() || undefined,
+                linkedin_url: contactForm.linkedin_url?.trim() || undefined,
+                notes: contactForm.notes?.trim() || undefined,
+                created_at: editingContact != null ? contacts[editingContact].created_at : new Date().toISOString(),
+              }
+              const updated = editingContact != null
+                ? contacts.map((c, i) => i === editingContact ? entry : c)
+                : [...contacts, entry]
+              const res = await fetch(`/api/pipeline/${app.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contacts: updated }),
+              })
+              if (res.ok) {
+                setContacts(updated)
+                resetForm()
+                const json = await res.json()
+                if (json.application.timeline) setTimeline(json.application.timeline)
+                onUpdated(json.application)
+              }
+              setSavingContact(false)
+            }
+            async function deleteContact(idx: number) {
+              if (!confirm(`Remove ${contacts[idx].name}?`)) return
+              const updated = contacts.filter((_, i) => i !== idx)
+              const res = await fetch(`/api/pipeline/${app.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contacts: updated }),
+              })
+              if (res.ok) {
+                setContacts(updated)
+                if (editingContact === idx) resetForm()
+                const json = await res.json()
+                onUpdated(json.application)
+              }
+            }
+            return (
+              <div className="space-y-4">
+                {contacts.length === 0 && editingContact === null && !contactForm.name && (
+                  <p className="text-sm text-rp-text-3 text-center py-4">No contacts yet. Add recruiters, hiring managers, or other contacts for this application.</p>
+                )}
+                {contacts.map((c, i) => (
+                  <div key={i} className="bg-rp-bg rounded-xl p-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-rp-text-1">{c.name}</p>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-white border border-rp-border text-rp-text-3">
+                            {ROLES.find(r => r.key === c.role)?.label ?? c.role}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                          {c.email && <a href={`mailto:${c.email}`} className="text-xs text-rp-accent hover:underline">{c.email}</a>}
+                          {c.phone && <a href={`tel:${c.phone}`} className="text-xs text-rp-accent hover:underline">{c.phone}</a>}
+                          {c.linkedin_url && <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-xs text-rp-accent hover:underline">LinkedIn</a>}
+                        </div>
+                        {c.notes && <p className="text-xs text-rp-text-2 mt-1">{c.notes}</p>}
+                      </div>
+                      <div className="flex gap-1 ml-2 flex-shrink-0">
+                        <button onClick={() => startEdit(i)} className="text-xs text-rp-text-3 hover:text-rp-accent px-1">Edit</button>
+                        <button onClick={() => deleteContact(i)} className="text-xs text-rp-text-3 hover:text-red-500 px-1">Remove</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {(editingContact !== null || contactForm.name !== undefined) ? (
+                  <div className="border border-rp-border rounded-xl p-4 space-y-3">
+                    <p className="text-xs font-medium text-rp-text-3 uppercase tracking-wide">{editingContact !== null ? 'Edit contact' : 'New contact'}</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-rp-text-3 mb-1">Name *</label>
+                        <input
+                          type="text"
+                          className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+                          value={contactForm.name ?? ''}
+                          onChange={e => setContactForm(f => ({ ...f, name: e.target.value }))}
+                          placeholder="Full name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-rp-text-3 mb-1">Role *</label>
+                        <select
+                          className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+                          value={contactForm.role ?? ''}
+                          onChange={e => setContactForm(f => ({ ...f, role: e.target.value as Contact['role'] }))}
+                        >
+                          <option value="">Select…</option>
+                          {ROLES.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-rp-text-3 mb-1">Email</label>
+                        <input
+                          type="email"
+                          className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+                          value={contactForm.email ?? ''}
+                          onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))}
+                          placeholder="email@company.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-rp-text-3 mb-1">Phone</label>
+                        <input
+                          type="tel"
+                          className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+                          value={contactForm.phone ?? ''}
+                          onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))}
+                          placeholder="+44..."
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-rp-text-3 mb-1">LinkedIn URL</label>
+                      <input
+                        type="url"
+                        className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+                        value={contactForm.linkedin_url ?? ''}
+                        onChange={e => setContactForm(f => ({ ...f, linkedin_url: e.target.value }))}
+                        placeholder="https://linkedin.com/in/..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-rp-text-3 mb-1">Notes</label>
+                      <input
+                        type="text"
+                        className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
+                        value={contactForm.notes ?? ''}
+                        onChange={e => setContactForm(f => ({ ...f, notes: e.target.value }))}
+                        placeholder="e.g. Spoke on 1st April, friendly"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={saveContact}
+                        disabled={savingContact || !contactForm.name?.trim() || !contactForm.role}
+                        className="flex-1 py-2 rounded-lg bg-rp-accent text-white text-sm font-medium hover:bg-rp-accent-dk transition-colors disabled:opacity-50"
+                      >
+                        {savingContact ? 'Saving…' : editingContact !== null ? 'Update contact' : 'Add contact'}
+                      </button>
+                      <button
+                        onClick={resetForm}
+                        className="py-2 px-4 rounded-lg border border-rp-border text-rp-text-2 text-sm hover:bg-rp-bg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setContactForm({ name: '' })}
+                    className="w-full py-2 rounded-lg border border-dashed border-rp-border text-rp-text-3 text-sm hover:border-rp-accent hover:text-rp-accent transition-colors"
+                  >
+                    + Add contact
+                  </button>
+                )}
+              </div>
+            )
+          })()}
 
           {tab === 'timeline' && (
             <div className="space-y-1">
@@ -1075,7 +1272,7 @@ function KanbanCard({
         <span className="text-xs text-rp-text-3">{formatDate(app.created_at)}</span>
         {app.follow_up_date && (
           <span className={`text-xs px-1.5 py-0.5 rounded-full ${overdue ? 'text-orange-600 bg-orange-50' : 'text-rp-text-3 bg-rp-bg'}`}>
-            {overdue ? '⚠ ' : ''}Follow up {formatDate(app.follow_up_date)}
+            {overdue && '⚠ '}{formatDate(app.follow_up_date)}
           </span>
         )}
       </div>
@@ -1331,7 +1528,7 @@ export default function PipelinePage() {
               </div>
               <button
                 onClick={() => setAddModal({ open: true, stage: 'saved' })}
-                className="px-4 py-2 rounded-full bg-rp-accent text-white text-sm font-medium hover:bg-rp-accent-dk transition-colors"
+                className="px-6 py-3 rounded-full bg-rp-accent text-white font-medium hover:bg-rp-accent-dk transition-colors"
               >
                 + Add application
               </button>
