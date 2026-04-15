@@ -7,6 +7,7 @@ import { CompanyLogo } from '@/components/CompanyLogo'
 import { getTipsForStage } from '@/lib/pipelineTips'
 import type { Tip } from '@/lib/pipelineTips'
 import type { PrepBrief } from '@/lib/interviewPrepBrief'
+import { getNegotiationTips } from '@/lib/negotiationTips'
 
 // ── Follow-Up Template Block ──────────────────────────────────────────
 function FollowUpTemplateBlock({ label, text }: { label: string; text: string }) {
@@ -126,6 +127,24 @@ function BenchmarkPanel({ offerBase, jobTitle }: { offerBase: number; jobTitle: 
       <p className="text-xs text-rp-text-3">
         {source === 'live' ? `Based on ${sampleSize} similar roles on RolePulse` : 'Based on GTM industry salary bands (UK market)'}
       </p>
+      {(() => {
+        const tips = getNegotiationTips(position)
+        const tipColour = position === 'above' ? 'border-green-200 bg-green-50/30' : position === 'at' ? 'border-blue-200 bg-blue-50/30' : 'border-orange-200 bg-orange-50/30'
+        return (
+          <div className={`rounded-lg border ${tipColour} p-3 space-y-2.5`}>
+            <h4 className="text-xs font-semibold text-rp-text-1 uppercase tracking-wide">Negotiation tips</h4>
+            {tips.map((tip, i) => (
+              <div key={i} className="flex gap-2">
+                <span className="text-sm flex-shrink-0 mt-0.5">{tip.icon}</span>
+                <div>
+                  <p className="text-sm font-medium text-rp-text-1">{tip.title}</p>
+                  <p className="text-xs text-rp-text-2 mt-0.5 leading-relaxed">{tip.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
     </div>
   )
 }
