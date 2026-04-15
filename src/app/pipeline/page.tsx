@@ -7,6 +7,109 @@ import { CompanyLogo } from '@/components/CompanyLogo'
 import { getTipsForStage } from '@/lib/pipelineTips'
 import type { Tip } from '@/lib/pipelineTips'
 
+// ── Salary Benchmark Panel ───────────────────────────────────────────────────
+
+interface BenchmarkData {
+  position: 'below' | 'at' | 'above'
+  percentile: number
+  marketMin: number
+  marketMedian: number
+  marketMax: number
+  currency: string
+  sampleSize: number
+  source: 'live' | 'static'
+  comparableRoles: { title: string; company: string; salaryMin: number | null; salaryMax: number | null; location: string | null }[]
+}
+
+function formatBenchmarkSalary(amount: number, currency: string): string {
+  const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£'
+  return amount >= 1000 ? `${symbol}${Math.round(amount / 1000)}K` : `${symbol}${amount.toLocaleString()}`
+}
+
+function BenchmarkPanel({ offerBase, jobTitle }: { offerBase: number; jobTitle: string }) {
+  const [benchmark, setBenchmark] = useState<BenchmarkData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+  const prevOfferRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!offerBase || offerBase < 10000 || offerBase === prevOfferRef.current) return
+    prevOfferRef.current = offerBase
+    setLoading(true)
+    setError(false)
+    fetch(`/api/pipeline/benchmark?offer_base=${offerBase}&job_title=${encodeURIComponent(jobTitle)}&currency=GBP`)
+      .then(r => r.json())
+      .then(j => { if (j.benchmark) setBenchmark(j.benchmark); else setError(true) })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
+  }, [offerBase, jobTitle])
+
+  if (!offerBase || offerBase < 10000) return null
+  if (loading) return (
+    <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 flex items-center gap-3">
+      <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+      <span className="text-sm text-rp-text-2">Benchmarking offer…</span>
+    </div>
+  )
+  if (error || !benchmark) return null
+
+  const { position, percentile, marketMin, marketMedian, marketMax, currency, sampleSize, source, comparableRoles } = benchmark
+  const posColour = position === 'above' ? 'text-green-600' : position === 'at' ? 'text-blue-600' : 'text-orange-600'
+  const posBg = position === 'above' ? 'bg-green-50 border-green-200' : position === 'at' ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'
+  const posLabel = position === 'above' ? 'Above market' : position === 'at' ? 'At market' : 'Below market'
+  const posIcon = position === 'above' ? '↑' : position === 'at' ? '→' : '↓'
+
+  const rangeWidth = marketMax - marketMin
+  const offerPct = rangeWidth > 0 ? Math.max(0, Math.min(100, ((offerBase - marketMin) / rangeWidth) * 100)) : 50
+  const medianPct = rangeWidth > 0 ? ((marketMedian - marketMin) / rangeWidth) * 100 : 50
+
+  return (
+    <div className={`rounded-xl border ${posBg} p-4 space-y-3`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-base">📊</span>
+          <h3 className="text-sm font-semibold text-rp-text-1">Salary benchmark</h3>
+        </div>
+        <span className={`text-sm font-bold ${posColour} flex items-center gap-1`}>
+          {posIcon} {posLabel}
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className={`text-2xl font-bold ${posColour}`}>{percentile}th</span>
+        <span className="text-sm text-rp-text-2">percentile</span>
+      </div>
+      <div className="space-y-1">
+        <div className="relative h-3 bg-white/80 rounded-full overflow-hidden border border-black/5">
+          <div className="absolute inset-0 rounded-full" style={{background: 'linear-gradient(to right, #f97316 0%, #3b82f6 50%, #22c55e 100%)', opacity: 0.25}} />
+          <div className="absolute top-0 h-full w-0.5 bg-rp-text-3/40" style={{left: `${medianPct}%`}} />
+          <div className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-2 border-white shadow-md" style={{left: `calc(${offerPct}% - 7px)`, backgroundColor: position === 'above' ? '#22c55e' : position === 'at' ? '#3b82f6' : '#f97316'}} />
+        </div>
+        <div className="flex justify-between text-xs text-rp-text-3">
+          <span>{formatBenchmarkSalary(marketMin, currency)}</span>
+          <span className="text-rp-text-2 font-medium">Median: {formatBenchmarkSalary(marketMedian, currency)}</span>
+          <span>{formatBenchmarkSalary(marketMax, currency)}</span>
+        </div>
+      </div>
+      {comparableRoles.length > 0 && (
+        <div className="pt-2 border-t border-black/5 space-y-1.5">
+          <p className="text-xs font-medium text-rp-text-2 uppercase tracking-wide">Comparable roles</p>
+          {comparableRoles.map((r, i) => (
+            <div key={i} className="flex items-center justify-between text-xs">
+              <span className="text-rp-text-1 truncate flex-1">{r.title} <span className="text-rp-text-3">at {r.company}</span></span>
+              <span className="text-rp-text-2 ml-2 flex-shrink-0">
+                {r.salaryMin && r.salaryMax ? `${formatBenchmarkSalary(r.salaryMin, currency)} – ${formatBenchmarkSalary(r.salaryMax, currency)}` : '—'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-xs text-rp-text-3">
+        {source === 'live' ? `Based on ${sampleSize} similar roles on RolePulse` : 'Based on GTM industry salary bands (UK market)'}
+      </p>
+    </div>
+  )
+}
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type Stage = 'saved' | 'applied' | 'first_call' | 'interviewing' | 'offer' | 'closed'
@@ -546,6 +649,7 @@ function CardDetailModal({
                     />
                   </div>
                   <p className="text-xs text-rp-text-3">All fields optional — fill in what you have.</p>
+                  <BenchmarkPanel offerBase={Number(offerBase) || 0} jobTitle={app.job_title} />
                 </div>
               )}
               <div className="flex gap-3 pt-2">
