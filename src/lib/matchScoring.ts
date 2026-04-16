@@ -1,6 +1,7 @@
 /**
  * Phase 4 composite match scoring for "Jobs For You"
- * Total = (CV score × 0.6) + (location score × 0.25) + (salary score × 0.15)
+ * Total = (CV score × 0.75) + (location score × 0.15) + (salary score × 0.10)
+ * Capped at cvScore + 10 so a weak CV can never become a strong composite.
  */
 
 export interface JobPreferences {
@@ -20,10 +21,50 @@ export interface JobForScoring {
   salary_max?: number | null
 }
 
+type Region = 'US' | 'UK' | 'EU' | 'CA' | 'APAC' | 'MEA' | 'LATAM' | 'OCEANIA' | 'UNKNOWN'
+
+const REGION_PATTERNS: Array<{ region: Region, pattern: RegExp }> = [
+  { region: 'UK', pattern: /\b(united kingdom|uk\b|england|scotland|wales|northern ireland|london|manchester|birmingham|leeds|bristol|edinburgh|glasgow|cambridge|oxford|brighton)\b/i },
+  { region: 'US', pattern: /\b(united states|usa|u\.s\.a?\.?|us\b|california|new york|texas|florida|massachusetts|washington|illinois|colorado|georgia|nj\b|new jersey|atlanta|chicago|austin|boston|denver|seattle|san francisco|los angeles|nyc|sf\b|missouri|missoula)\b/i },
+  { region: 'CA', pattern: /\b(canada|toronto|vancouver|montreal|ottawa|calgary|edmonton)\b/i },
+  { region: 'EU', pattern: /\b(germany|france|spain|italy|portugal|netherlands|belgium|ireland|sweden|norway|finland|denmark|poland|czech|austria|switzerland|berlin|munich|paris|madrid|barcelona|rome|milan|amsterdam|brussels|dublin|stockholm|copenhagen|helsinki|warsaw|prague|vienna|zurich|lisbon)\b/i },
+  { region: 'APAC', pattern: /\b(india|china|japan|singapore|hong kong|south korea|taiwan|vietnam|thailand|indonesia|philippines|malaysia|bangalore|bengaluru|mumbai|delhi|hyderabad|chennai|tokyo|beijing|shanghai|seoul|jakarta|manila|bangkok|kuala lumpur)\b/i },
+  { region: 'OCEANIA', pattern: /\b(australia|new zealand|sydney|melbourne|brisbane|perth|auckland|wellington)\b/i },
+  { region: 'MEA', pattern: /\b(uae|dubai|abu dhabi|saudi arabia|riyadh|israel|tel aviv|south africa|johannesburg|cape town|egypt|cairo|nigeria|lagos|kenya|nairobi|qatar|doha)\b/i },
+  { region: 'LATAM', pattern: /\b(brazil|mexico|argentina|chile|colombia|peru|sao paulo|são paulo|rio de janeiro|mexico city|buenos aires|santiago|bogota|lima)\b/i },
+]
+
+function detectRegion(text: string | null | undefined): Region {
+  if (!text) return 'UNKNOWN'
+  for (const { region, pattern } of REGION_PATTERNS) {
+    if (pattern.test(text)) return region
+  }
+  return 'UNKNOWN'
+}
+
+function regionsAdjacent(a: Region, b: Region): boolean {
+  if (a === b) return true
+  if ((a === 'UK' && b === 'EU') || (a === 'EU' && b === 'UK')) return true
+  return false
+}
+
 /** 0–100 location match score */
-export function locationScore(job: JobForScoring, prefs: JobPreferences): number {
+export function locationScore(
+  job: JobForScoring,
+  prefs: JobPreferences,
+  cvText?: string | null
+): number {
   const locType = prefs.preferredLocationType
-  if (!locType || locType === 'open') return 100
+
+  // No explicit pref: derive candidate region from CV and compare to job region.
+  if (!locType || locType === 'open') {
+    const cvRegion = detectRegion(cvText)
+    const jobRegion = detectRegion(job.location)
+    if (cvRegion === 'UNKNOWN' || jobRegion === 'UNKNOWN') return 60
+    if (cvRegion === jobRegion) return 100
+    if (regionsAdjacent(cvRegion, jobRegion)) return 70
+    return job.remote ? 45 : 20
+  }
 
   if (locType === 'remote') {
     return job.remote ? 100 : 0
@@ -31,7 +72,6 @@ export function locationScore(job: JobForScoring, prefs: JobPreferences): number
 
   if (locType === 'hybrid') {
     if (!job.remote && !job.location) return 0
-    // If job is remote or mentions hybrid, good
     if (job.remote) return 80
     if (job.location && prefs.preferredLocationCity) {
       const city = prefs.preferredLocationCity.toLowerCase()
@@ -50,7 +90,6 @@ export function locationScore(job: JobForScoring, prefs: JobPreferences): number
       const jobLoc = job.location.toLowerCase()
       if (jobLoc.includes(city)) return 100
     }
-    // On-site but different city
     return job.location ? 30 : 0
   }
 
@@ -59,8 +98,8 @@ export function locationScore(job: JobForScoring, prefs: JobPreferences): number
 
 /** 0–100 salary match score */
 export function salaryScore(job: JobForScoring, prefs: JobPreferences): number {
-  if (prefs.salaryMin === null && prefs.salaryMax === null) return 100 // prefs not set, neutral
-  if (job.salary_min === null && job.salary_max === null) return 50 // job has no salary, neutral
+  if (prefs.salaryMin === null && prefs.salaryMax === null) return 100
+  if (job.salary_min === null && job.salary_max === null) return 50
 
   const candMin = prefs.salaryMin ?? 0
   const candMax = prefs.salaryMax ?? Infinity
@@ -68,16 +107,11 @@ export function salaryScore(job: JobForScoring, prefs: JobPreferences): number {
   const jobMin = job.salary_min ?? 0
   const jobMax = job.salary_max ?? job.salary_min ?? 0
 
-  // Check overlap
   const overlapMin = Math.max(candMin, jobMin)
   const overlapMax = Math.min(candMax === Infinity ? jobMax : candMax, jobMax)
 
   if (overlapMax >= overlapMin) return 100
-
-  // Below candidate minimum
   if (jobMax < candMin) return 0
-
-  // Above candidate max — still positive, candidate might negotiate
   return 60
 }
 
@@ -179,7 +213,10 @@ function mismatchPenalty(jobTitle: string | null | undefined, cvText: string | n
   return penalty
 }
 
-/** Composite match score: CV 60% + location 25% + salary 15%, with penalties for obvious mismatch */
+/**
+ * Composite match score: CV 75% + location 15% + salary 10%, with penalties for mismatch.
+ * Ceiling at cvScore + 10 so a weak CV fit can never become a strong composite.
+ */
 export function compositeScore(
   cvScore: number | null,
   locScore: number,
@@ -189,8 +226,9 @@ export function compositeScore(
     cvText?: string | null
   }
 ): number {
-  const cv = cvScore ?? 50 // neutral if no CV score
-  const base = Math.round(cv * 0.6 + locScore * 0.25 + salScore * 0.15)
+  const cv = cvScore ?? 50
+  const base = Math.round(cv * 0.75 + locScore * 0.15 + salScore * 0.10)
   const penalty = mismatchPenalty(options?.jobTitle, options?.cvText)
-  return Math.max(0, base - penalty)
+  const ceiling = cv + 10
+  return Math.max(0, Math.min(ceiling, base - penalty))
 }
