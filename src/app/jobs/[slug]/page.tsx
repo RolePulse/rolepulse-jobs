@@ -239,6 +239,10 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
         <input ref={fileRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
       </label>
       {state === 'error' && <p className="text-xs text-red-500 mt-2">{errorMsg}</p>}
+      <p className="text-[10px] text-slate-400 text-center mt-2.5">
+        Powered by{' '}
+        <a href="https://www.cvpulse.io" target="_blank" rel="noopener noreferrer" className="text-rp-accent hover:underline">CV Pulse</a>
+      </p>
     </div>
   )
 
@@ -283,7 +287,7 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
           {result.flags.map((f, i) => <p key={i} className="text-[11px] text-slate-500">✗ {f}</p>)}
         </div>
       )}
-      {/* CV Pulse link removed — CV Pulse not yet publicly launched */}
+      <a href="https://www.cvpulse.io" target="_blank" rel="noopener noreferrer" className="block text-[11px] text-rp-accent hover:underline mt-3">Get a full score with detailed fixes on CV Pulse →</a>
 
       {/* Returning user: saved CV info */}
       {savedCvInfo && (
