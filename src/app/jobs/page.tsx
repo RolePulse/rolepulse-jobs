@@ -539,13 +539,19 @@ function JobsList() {
       // }
 
       if (q) {
-        query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`)
+        const safeQ = q.replace(/[,()]/g, ' ').replace(/\s+/g, ' ').trim()
+        if (safeQ) {
+          query = query.or(`title.ilike.%${safeQ}%,description.ilike.%${safeQ}%`)
+        }
       }
 
       // Salary filter disabled: salary columns not present in jobs schema
       // if (selectedSalary) { ... }
 
-      const { data: jobData, count } = await query
+      const { data: jobData, count, error: queryError } = await query
+      if (queryError) {
+        console.error('Job search error:', queryError.message)
+      }
       setTotal(count || 0)
 
       const rawJobs: Job[] = (jobData || []).map((j: any) => ({
