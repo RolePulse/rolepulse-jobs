@@ -52,14 +52,14 @@ export function HomeFooter() {
               <p className="text-white text-sm font-semibold mb-4">Legal</p>
               <ul className="space-y-2">
                 <li>
-                  <a href="#privacy" className="text-slate-400 text-sm hover:text-white transition-colors">
+                  <Link href="/privacy" className="text-slate-400 text-sm hover:text-white transition-colors">
                     Privacy
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#terms" className="text-slate-400 text-sm hover:text-white transition-colors">
+                  <Link href="/terms" className="text-slate-400 text-sm hover:text-white transition-colors">
                     Terms
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
