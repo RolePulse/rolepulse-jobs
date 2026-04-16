@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Suspense } from 'react'
+import { Mail } from 'lucide-react'
 
 function GoogleIcon() {
   return (
@@ -23,6 +24,7 @@ function SignUpForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [confirmationSent, setConfirmationSent] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect') || '/jobs'
@@ -30,7 +32,6 @@ function SignUpForm() {
   async function handleGoogleSignIn() {
     setGoogleLoading(true)
     const supabase = createClient()
-    // TODO: add Google OAuth credentials in Supabase dashboard → Authentication → Providers → Google
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -69,7 +70,7 @@ function SignUpForm() {
     setLoading(true)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -84,8 +85,45 @@ function SignUpForm() {
     }
 
     await handleStagedCv()
-    // New sign-ups go through onboarding
-    router.push('/onboarding')
+
+    if (data.session) {
+      router.push('/onboarding')
+    } else {
+      setConfirmationSent(true)
+      setLoading(false)
+    }
+  }
+
+  if (confirmationSent) {
+    return (
+      <div className="min-h-screen bg-rp-white flex items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center">
+          <div className="mx-auto w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-5">
+            <Mail className="w-7 h-7 text-emerald-600" />
+          </div>
+          <h1 className="text-2xl font-semibold text-rp-text-1 mb-2">Check your email</h1>
+          <p className="text-sm text-rp-text-3 mb-6">
+            We sent a confirmation link to <span className="font-medium text-rp-text-1">{email}</span>. Click the link to activate your account, then come back to sign in.
+          </p>
+          <Link
+            href={`/sign-in?redirect=${encodeURIComponent(redirect)}`}
+            className="inline-block bg-rp-accent text-white font-semibold py-2.5 px-6 rounded-full hover:bg-rp-accent-dk transition-colors"
+          >
+            Go to sign in
+          </Link>
+          <p className="mt-4 text-xs text-rp-text-3">
+            Didn&apos;t get the email? Check your spam folder or{' '}
+            <button
+              type="button"
+              onClick={() => setConfirmationSent(false)}
+              className="text-rp-accent hover:underline"
+            >
+              try again
+            </button>
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
