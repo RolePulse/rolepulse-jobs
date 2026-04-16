@@ -371,6 +371,24 @@ function getCompanyDescription(name: string): string | null {
   return null
 }
 
+// ── Substack Subscribe Prompt ──────────────────────────────────────────────────
+function SubstackPrompt() {
+  return (
+    <div className="mt-3 p-3.5 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100">
+      <p className="text-xs font-semibold text-slate-700 mb-1">Get roles like this in your inbox</p>
+      <p className="text-[10px] text-slate-500 mb-2.5">Weekly GTM career opportunities & insights — free forever.</p>
+      <a
+        href="https://rolepulse.substack.com/subscribe"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-rp-accent hover:text-rp-accent-dk transition-colors"
+      >
+        Subscribe on Substack <span aria-hidden="true">→</span>
+      </a>
+    </div>
+  )
+}
+
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function JobPageSkeleton() {
   return (
@@ -670,6 +688,7 @@ export default function JobPage() {
           {!isEmployerListing && (
             <p className="text-xs text-rp-text-3 text-center">You&apos;ll be redirected to {company?.name}&apos;s careers page.</p>
           )}
+          <SubstackPrompt />
           {/* CV Scorer — mobile only (full width, below apply buttons) */}
           <div className="lg:hidden">
             <CVScorer jobDescription={jdForScoring} roleType={job.role_type || 'AE'} jobId={job.id} />
@@ -763,6 +782,8 @@ export default function JobPage() {
                     Redirected to {company?.name}&apos;s site
                   </p>
                 )}
+
+                <SubstackPrompt />
 
                 {/* Role details */}
                 <div className="mt-5 pt-5 border-t border-[#E5E7EB] space-y-3">
