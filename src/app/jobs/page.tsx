@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { JobRow, type MatchScoreState } from '@/components/JobRow'
 import { JobRowSkeleton } from '@/components/JobRowSkeleton'
@@ -36,7 +37,7 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
   if (extras.length) href += (href.includes('?') ? '&' : '?') + extras.join('&')
 
   return (
-    <a
+    <Link
       href={href}
       className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
         selected
@@ -45,7 +46,7 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
       }`}
     >
       {role === 'all' ? 'All roles' : role}
-    </a>
+    </Link>
   )
 }
 
@@ -84,7 +85,7 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
   if (extras.length) href += '?' + extras.join('&')
 
   return (
-    <a
+    <Link
       href={href}
       className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
         selected
@@ -93,7 +94,7 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
       }`}
     >
       {loc.label}
-    </a>
+    </Link>
   )
 }
 
@@ -116,7 +117,7 @@ function RemoteRegionPill({ region, selected }: { region: { label: string; value
   if (extras.length) href += '?' + extras.join('&')
 
   return (
-    <a
+    <Link
       href={href}
       className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
         selected
@@ -125,7 +126,7 @@ function RemoteRegionPill({ region, selected }: { region: { label: string; value
       }`}
     >
       {region.label}
-    </a>
+    </Link>
   )
 }
 
@@ -146,7 +147,7 @@ function SalaryPill({ option, selected }: { option: { label: string; value: stri
   if (extras.length) href += '?' + extras.join('&')
 
   return (
-    <a
+    <Link
       href={href}
       className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
         selected
@@ -155,7 +156,7 @@ function SalaryPill({ option, selected }: { option: { label: string; value: stri
       }`}
     >
       {option.label}
-    </a>
+    </Link>
   )
 }
 
