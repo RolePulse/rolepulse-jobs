@@ -783,7 +783,7 @@ function JobsList() {
             className="text-white"
             style={{ fontSize: '64px', fontWeight: 800, lineHeight: 1.1 }}
           >
-            GTM careers
+            Browse roles
           </h1>
           <p className="text-slate-400 mt-4" style={{ fontSize: '16px' }}>
             Roles from the best GTM SaaS companies. Updated daily.

@@ -2056,7 +2056,7 @@ export default function PipelinePage() {
                 href="/jobs"
                 className="w-full sm:w-auto px-8 py-3 rounded-full border border-rp-border text-rp-text-2 font-medium hover:border-rp-text-3 transition-colors text-center"
               >
-                Browse jobs
+                Browse roles
               </a>
             </div>
           </div>
