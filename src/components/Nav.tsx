@@ -38,6 +38,7 @@ export function Nav() {
 
   const navLinks = [
     { href: '/jobs', label: 'Browse roles' },
+    { href: 'https://www.cvpulse.io', label: 'Score your CV', external: true },
   ]
 
   const authNavLinks = [
@@ -55,18 +56,30 @@ export function Nav() {
 
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-6">
-          {navLinks.map(({ href, label }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`text-sm transition-colors ${
-                isActive(href)
-                  ? 'text-white underline underline-offset-4'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              {label}
-            </Link>
+          {navLinks.map(({ href, label, external }) => (
+            external ? (
+              <a
+                key={href}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-zinc-400 hover:text-white transition-colors"
+              >
+                {label} ↗
+              </a>
+            ) : (
+              <Link
+                key={href}
+                href={href}
+                className={`text-sm transition-colors ${
+                  isActive(href)
+                    ? 'text-white underline underline-offset-4'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                {label}
+              </Link>
+            )
           ))}
 
           {user && authNavLinks.map(({ href, label }) => (
@@ -173,15 +186,28 @@ export function Nav() {
       {/* Mobile menu */}
       {menuOpen && (
         <div className="md:hidden bg-rp-black border-t border-white/10 px-8 pb-6 pt-4 flex flex-col gap-4">
-          {navLinks.map(({ href, label }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`text-sm transition-colors ${isActive(href) ? 'text-white' : 'text-zinc-400'}`}
-              onClick={() => setMenuOpen(false)}
-            >
-              {label}
-            </Link>
+          {navLinks.map(({ href, label, external }) => (
+            external ? (
+              <a
+                key={href}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-zinc-400 hover:text-white transition-colors"
+                onClick={() => setMenuOpen(false)}
+              >
+                {label} ↗
+              </a>
+            ) : (
+              <Link
+                key={href}
+                href={href}
+                className={`text-sm transition-colors ${isActive(href) ? 'text-white' : 'text-zinc-400'}`}
+                onClick={() => setMenuOpen(false)}
+              >
+                {label}
+              </Link>
+            )
           ))}
           <Link
             href="/post-a-job"
