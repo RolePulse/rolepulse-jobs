@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { Nav } from "@/components/Nav";
 import "./globals.css";
@@ -18,6 +18,12 @@ export const metadata: Metadata = {
     apple: '/rolepulse-logo-dark.png',
     shortcut: '/rolepulse-logo-dark.png',
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({
