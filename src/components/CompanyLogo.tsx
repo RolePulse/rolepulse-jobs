@@ -11,22 +11,15 @@ function companyColour(name: string): string {
   return `hsl(${hue}, 55%, 45%)`
 }
 
-/**
- * If src is a Google favicon gstatic URL, normalise it to the higher-quality
- * faviconV2 endpoint (t3.gstatic.com/faviconV2) at size=256. This replaces the
- * old Clearbit path which was shut down when HubSpot acquired Clearbit.
- */
 function resolveSrc(src: string): string {
   try {
     const u = new URL(src)
     if (u.hostname.endsWith('.gstatic.com')) {
-      // Already a faviconV2 URL — ensure size=256
       if (u.pathname.startsWith('/faviconV2')) {
         u.searchParams.set('size', '256')
         u.hostname = 't3.gstatic.com'
         return u.toString()
       }
-      // Legacy t2.gstatic.com favicon URL — upgrade to faviconV2
       const rawUrl = u.searchParams.get('url')
       if (rawUrl) {
         const domain = new URL(rawUrl).hostname
@@ -57,10 +50,6 @@ function faviconFromDomain(domain: string | null | undefined): string | null {
   return `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${clean}&size=256`
 }
 
-/**
- * Returns high-res logo sources for a domain: apple-touch-icon (typically 180x180)
- * and a large favicon, in priority order.
- */
 function hiResLogoSources(domain: string | null | undefined): string[] {
   if (!domain) return []
   const clean = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
@@ -104,19 +93,17 @@ export function CompanyLogo({ src, name, domain, size = 32, className = '', useH
   const hiRes = domains.flatMap(hiResLogoSources)
   const favicons = domains.map(faviconFromDomain).filter(Boolean) as string[]
 
-  // For larger logos (≥40px), try hi-res apple-touch-icons first to avoid blurry favicons
-  const allSources = size >= 40
-    ? [...hiRes, resolvedSrc, src, ...favicons].filter(Boolean) as string[]
-    : [resolvedSrc, src, ...hiRes, ...favicons].filter(Boolean) as string[]
+  // Always try the stored/resolved logo_url first (most reliable), then hi-res, then favicons
+  const allSources = [resolvedSrc, src, ...hiRes, ...favicons].filter(Boolean) as string[]
   const sources = allSources.filter((v, i, a) => a.indexOf(v) === i)
 
-  const [imgError, setImgError] = useState(false)
   const [sourceIdx, setSourceIdx] = useState(0)
   const initial = name?.charAt(0).toUpperCase() || '?'
 
   const currentSrc = sources[sourceIdx] ?? null
+  const showFallback = !currentSrc || sourceIdx >= sources.length
 
-  if (currentSrc && !imgError) {
+  if (currentSrc && !showFallback) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -128,11 +115,7 @@ export function CompanyLogo({ src, name, domain, size = 32, className = '', useH
         className={`rounded object-contain flex-shrink-0 ${className}`}
         style={{ width: size, height: size }}
         onError={() => {
-          if (sourceIdx < sources.length - 1) {
-            setSourceIdx(sourceIdx + 1)
-          } else {
-            setImgError(true)
-          }
+          setSourceIdx(prev => prev + 1)
         }}
       />
     )
