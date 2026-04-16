@@ -706,12 +706,22 @@ function JobsList() {
           setMatchScores(prev => ({ ...prev, [jobId]: score }))
 
           // Recompute composite and re-rank
+          // ROL-44: always compute location/salary scores, even when prefs are null.
+          // locationScore derives CV region from cvText when prefs are "open".
+          const effectivePrefs: JobPreferences = prefs ?? {
+            preferredLocationType: 'open',
+            preferredLocationCity: null,
+            salaryMin: null,
+            salaryMax: null,
+            salaryCurrency: null,
+            openToContract: false,
+          }
           setForYouJobs(currentJobs => {
             const breakdowns: Record<string, MatchBreakdown> = {}
             const scored = dedupedJobs.map(job => {
               const cv = cvScores[job.id] ?? null
-              const locScore_ = prefs ? locationScore(job as JobForScoring, prefs) : 100
-              const salScore_ = prefs ? salaryScore(job as JobForScoring, prefs) : 100
+              const locScore_ = locationScore(job as JobForScoring, effectivePrefs, cvText)
+              const salScore_ = salaryScore(job as JobForScoring, effectivePrefs)
               const total = compositeScore(cv, locScore_, salScore_, { jobTitle: job.title, cvText })
               breakdowns[job.id] = { cvScore: cv, locScore: locScore_, salScore: salScore_, total }
               return { job, total }
@@ -729,11 +739,19 @@ function JobsList() {
         })
 
         // Final sort after all scoring done
+        const finalEffectivePrefs: JobPreferences = prefs ?? {
+          preferredLocationType: 'open',
+          preferredLocationCity: null,
+          salaryMin: null,
+          salaryMax: null,
+          salaryCurrency: null,
+          openToContract: false,
+        }
         const finalBreakdowns: Record<string, MatchBreakdown> = {}
         const scored = dedupedJobs.map(job => {
           const cv = cvScores[job.id] ?? null
-          const locScore_ = prefs ? locationScore(job as JobForScoring, prefs) : 100
-          const salScore_ = prefs ? salaryScore(job as JobForScoring, prefs) : 100
+          const locScore_ = locationScore(job as JobForScoring, finalEffectivePrefs, cvText)
+          const salScore_ = salaryScore(job as JobForScoring, finalEffectivePrefs)
           const total = compositeScore(cv, locScore_, salScore_, { jobTitle: job.title, cvText })
           finalBreakdowns[job.id] = { cvScore: cv, locScore: locScore_, salScore: salScore_, total }
           return { job, total }
