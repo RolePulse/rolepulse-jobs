@@ -331,28 +331,46 @@ function JobsForYouContent({
   }
 
   const hasPrefs = prefs && (prefs.preferredLocationType !== 'open' || prefs.salaryMin !== null || prefs.salaryMax !== null)
-  const strongMatches = jobs.filter(j => {
-    const total = matchBreakdowns[j.id]?.total
-    return typeof total === 'number' && total >= 60
+
+  const STRONG_THRESHOLD = 70
+  const POSSIBLE_THRESHOLD = 50
+
+  const scoredJobs = jobs.filter(j => typeof matchBreakdowns[j.id]?.total === 'number')
+  const strongMatches = scoredJobs.filter(j => (matchBreakdowns[j.id]?.total ?? 0) >= STRONG_THRESHOLD)
+  const possibleMatches = scoredJobs.filter(j => {
+    const total = matchBreakdowns[j.id]?.total ?? 0
+    return total >= POSSIBLE_THRESHOLD && total < STRONG_THRESHOLD
   })
+  const topScore = scoredJobs.length > 0 ? (matchBreakdowns[scoredJobs[0].id]?.total ?? 0) : 0
+  const hasAnyAboveThreshold = strongMatches.length > 0 || possibleMatches.length > 0
+
+  const renderJobRow = (job: Job) => (
+    <div key={job.id} className="relative">
+      <JobRow
+        job={job}
+        companyLogo={job.company_logo ?? undefined}
+        matchScore={matchBreakdowns[job.id]?.total ?? matchScores[job.id] ?? undefined}
+      />
+      {matchBreakdowns[job.id] && matchScores[job.id] !== 'loading' && (
+        <div className="px-0 pb-2 -mt-2 flex justify-end">
+          <MatchBreakdownBadge breakdown={matchBreakdowns[job.id]} />
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <>
       <div className="flex items-center justify-between mb-6">
         <p className="text-sm text-rp-text-3">
-          Showing {jobs.length} roles matched to your profile
+          {hasAnyAboveThreshold
+            ? `Showing ${strongMatches.length + possibleMatches.length} roles matched to your profile`
+            : 'Personalised matches'}
         </p>
         <a href="/account/profile" className="text-xs text-rp-accent hover:underline">
           Edit preferences →
         </a>
       </div>
-
-      {!hasPrefs && (
-        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-6 text-xs text-slate-600">
-          Based on your CV, these roles are your best matches.{' '}
-          <a href="/account/profile" className="text-rp-accent hover:underline">Add location and salary preferences</a> to refine further.
-        </div>
-      )}
 
       {jobs.length === 0 && (
         <div className="text-center py-16">
@@ -361,26 +379,64 @@ function JobsForYouContent({
         </div>
       )}
 
-      {jobs.length > 0 && strongMatches.length < 5 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-6 text-xs text-amber-700">
-          Based on your CV, these roles are your best matches. Add location and salary preferences to refine further.
+      {jobs.length > 0 && !hasAnyAboveThreshold && (
+        <div className="text-center py-16 border border-slate-200 rounded-lg bg-slate-50">
+          <p className="text-2xl mb-3">🔍</p>
+          <h3 className="text-lg font-semibold text-slate-700 mb-2">No strong matches in today&apos;s jobs</h3>
+          <p className="text-slate-500 text-sm mb-6 max-w-md mx-auto">
+            Your CV doesn&apos;t look like a strong fit for the GTM roles we&apos;re showing right now.
+            Broaden your preferences or browse the full list.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <a
+              href="/account/profile"
+              className="inline-flex items-center px-5 py-2.5 rounded-full bg-rp-accent text-white text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              Edit preferences
+            </a>
+            <a
+              href="/jobs"
+              className="inline-flex items-center px-5 py-2.5 rounded-full border border-rp-border text-rp-text-1 text-sm font-medium hover:bg-slate-50 transition-colors"
+            >
+              Browse all jobs
+            </a>
+          </div>
+          {topScore > 0 && (
+            <p className="text-xs text-slate-400 mt-6">Top composite score today: {Math.round(topScore)}</p>
+          )}
         </div>
       )}
 
-      {jobs.map((job: Job) => (
-        <div key={job.id} className="relative">
-          <JobRow
-            job={job}
-            companyLogo={job.company_logo ?? undefined}
-            matchScore={matchBreakdowns[job.id]?.total ?? matchScores[job.id] ?? undefined}
-          />
-          {matchBreakdowns[job.id] && matchScores[job.id] !== 'loading' && (
-            <div className="px-0 pb-2 -mt-2 flex justify-end">
-              <MatchBreakdownBadge breakdown={matchBreakdowns[job.id]} />
-            </div>
-          )}
+      {hasAnyAboveThreshold && !hasPrefs && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-6 text-xs text-slate-600">
+          Based on your CV, these roles are your best matches.{' '}
+          <a href="/account/profile" className="text-rp-accent hover:underline">Add location and salary preferences</a> to refine further.
         </div>
-      ))}
+      )}
+
+      {strongMatches.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-baseline justify-between mb-3">
+            <h3 className="text-sm font-semibold text-rp-text-1">
+              Strong matches <span className="text-rp-text-3 font-normal">· {strongMatches.length}</span>
+            </h3>
+            <span className="text-xs text-rp-text-3">Composite ≥ 70</span>
+          </div>
+          {strongMatches.map(renderJobRow)}
+        </div>
+      )}
+
+      {possibleMatches.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-baseline justify-between mb-3">
+            <h3 className="text-sm font-semibold text-rp-text-1">
+              Possible matches <span className="text-rp-text-3 font-normal">· {possibleMatches.length}</span>
+            </h3>
+            <span className="text-xs text-rp-text-3">Composite 50–69</span>
+          </div>
+          {possibleMatches.map(renderJobRow)}
+        </div>
+      )}
     </>
   )
 }
