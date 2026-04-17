@@ -24,12 +24,17 @@ export interface JobForScoring {
 type Region = 'US' | 'UK' | 'EU' | 'CA' | 'APAC' | 'MEA' | 'LATAM' | 'OCEANIA' | 'UNKNOWN'
 
 // Region patterns are counted (not first-match) and weighted toward the CV header.
+// Scores accumulate across patterns sharing the same region.
 // - `cambridge` / `oxford` are intentionally absent from the UK pattern because
 //   they collide with US locations (Cambridge, MA; Harvard/MIT; Oxford, MS).
 // - `(?<!new\s)england` prevents "New England" from matching the UK region.
+// - US state codes are matched only when preceded by a comma+space ("City, ST"),
+//   and must be uppercase to avoid collisions with common English words
+//   (e.g. "or", "in", "hi", "me", "ok", "la", "pa").
 const REGION_PATTERNS: Array<{ region: Region, pattern: RegExp }> = [
   { region: 'UK', pattern: /\b(united kingdom|uk|(?<!new\s)england|scotland|wales|northern ireland|london|manchester|birmingham|leeds|bristol|edinburgh|glasgow|brighton)\b/gi },
-  { region: 'US', pattern: /\b(united states|usa|u\.s\.a?\.?|us|california|new york|texas|florida|massachusetts|washington|illinois|colorado|georgia|nj|new jersey|atlanta|chicago|austin|boston|denver|seattle|san francisco|los angeles|nyc|sf|missouri|missoula)\b/gi },
+  { region: 'US', pattern: /\b(united states|usa|u\.s\.a?\.?|us|alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|district of columbia|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming|nj|atlanta|chicago|austin|boston|denver|seattle|san francisco|los angeles|nyc|sf|missoula|nashville|phoenix|arlington|bethesda|raleigh|pittsburgh|columbus)\b/gi },
+  { region: 'US', pattern: /(?<=,\s)(?:AL|AK|AZ|AR|CA|CO|CT|DC|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/g },
   { region: 'CA', pattern: /\b(canada|toronto|vancouver|montreal|ottawa|calgary|edmonton)\b/gi },
   { region: 'EU', pattern: /\b(germany|france|spain|italy|portugal|netherlands|belgium|ireland|sweden|norway|finland|denmark|poland|czech|austria|switzerland|berlin|munich|paris|madrid|barcelona|rome|milan|amsterdam|brussels|dublin|stockholm|copenhagen|helsinki|warsaw|prague|vienna|zurich|lisbon)\b/gi },
   { region: 'APAC', pattern: /\b(india|china|japan|singapore|hong kong|south korea|taiwan|vietnam|thailand|indonesia|philippines|malaysia|bangalore|bengaluru|mumbai|delhi|hyderabad|chennai|tokyo|beijing|shanghai|seoul|jakarta|manila|bangkok|kuala lumpur)\b/gi },
@@ -45,8 +50,7 @@ export function detectRegion(text: string | null | undefined): Region {
   if (!text) return 'UNKNOWN'
   const header = text.slice(0, HEADER_WINDOW_CHARS)
 
-  let best: Region = 'UNKNOWN'
-  let bestScore = 0
+  const scores: Partial<Record<Region, number>> = {}
   for (const { region, pattern } of REGION_PATTERNS) {
     // Reset lastIndex on shared global regex to be safe across calls.
     pattern.lastIndex = 0
@@ -54,6 +58,12 @@ export function detectRegion(text: string | null | undefined): Region {
     pattern.lastIndex = 0
     const headerMatches = header.match(pattern)?.length ?? 0
     const score = totalMatches + headerMatches * (HEADER_WEIGHT - 1)
+    scores[region] = (scores[region] ?? 0) + score
+  }
+
+  let best: Region = 'UNKNOWN'
+  let bestScore = 0
+  for (const [region, score] of Object.entries(scores) as Array<[Region, number]>) {
     if (score > bestScore) {
       bestScore = score
       best = region
