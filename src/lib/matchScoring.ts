@@ -23,23 +23,56 @@ export interface JobForScoring {
 
 type Region = 'US' | 'UK' | 'EU' | 'CA' | 'APAC' | 'MEA' | 'LATAM' | 'OCEANIA' | 'UNKNOWN'
 
+// Region patterns are counted (not first-match) and weighted toward the CV header.
+// - `cambridge` / `oxford` are intentionally absent from the UK pattern because
+//   they collide with US locations (Cambridge, MA; Harvard/MIT; Oxford, MS).
+// - `(?<!new\s)england` prevents "New England" from matching the UK region.
 const REGION_PATTERNS: Array<{ region: Region, pattern: RegExp }> = [
-  { region: 'UK', pattern: /\b(united kingdom|uk\b|england|scotland|wales|northern ireland|london|manchester|birmingham|leeds|bristol|edinburgh|glasgow|cambridge|oxford|brighton)\b/i },
-  { region: 'US', pattern: /\b(united states|usa|u\.s\.a?\.?|us\b|california|new york|texas|florida|massachusetts|washington|illinois|colorado|georgia|nj\b|new jersey|atlanta|chicago|austin|boston|denver|seattle|san francisco|los angeles|nyc|sf\b|missouri|missoula)\b/i },
-  { region: 'CA', pattern: /\b(canada|toronto|vancouver|montreal|ottawa|calgary|edmonton)\b/i },
-  { region: 'EU', pattern: /\b(germany|france|spain|italy|portugal|netherlands|belgium|ireland|sweden|norway|finland|denmark|poland|czech|austria|switzerland|berlin|munich|paris|madrid|barcelona|rome|milan|amsterdam|brussels|dublin|stockholm|copenhagen|helsinki|warsaw|prague|vienna|zurich|lisbon)\b/i },
-  { region: 'APAC', pattern: /\b(india|china|japan|singapore|hong kong|south korea|taiwan|vietnam|thailand|indonesia|philippines|malaysia|bangalore|bengaluru|mumbai|delhi|hyderabad|chennai|tokyo|beijing|shanghai|seoul|jakarta|manila|bangkok|kuala lumpur)\b/i },
-  { region: 'OCEANIA', pattern: /\b(australia|new zealand|sydney|melbourne|brisbane|perth|auckland|wellington)\b/i },
-  { region: 'MEA', pattern: /\b(uae|dubai|abu dhabi|saudi arabia|riyadh|israel|tel aviv|south africa|johannesburg|cape town|egypt|cairo|nigeria|lagos|kenya|nairobi|qatar|doha)\b/i },
-  { region: 'LATAM', pattern: /\b(brazil|mexico|argentina|chile|colombia|peru|sao paulo|são paulo|rio de janeiro|mexico city|buenos aires|santiago|bogota|lima)\b/i },
+  { region: 'UK', pattern: /\b(united kingdom|uk|(?<!new\s)england|scotland|wales|northern ireland|london|manchester|birmingham|leeds|bristol|edinburgh|glasgow|brighton)\b/gi },
+  { region: 'US', pattern: /\b(united states|usa|u\.s\.a?\.?|us|california|new york|texas|florida|massachusetts|washington|illinois|colorado|georgia|nj|new jersey|atlanta|chicago|austin|boston|denver|seattle|san francisco|los angeles|nyc|sf|missouri|missoula)\b/gi },
+  { region: 'CA', pattern: /\b(canada|toronto|vancouver|montreal|ottawa|calgary|edmonton)\b/gi },
+  { region: 'EU', pattern: /\b(germany|france|spain|italy|portugal|netherlands|belgium|ireland|sweden|norway|finland|denmark|poland|czech|austria|switzerland|berlin|munich|paris|madrid|barcelona|rome|milan|amsterdam|brussels|dublin|stockholm|copenhagen|helsinki|warsaw|prague|vienna|zurich|lisbon)\b/gi },
+  { region: 'APAC', pattern: /\b(india|china|japan|singapore|hong kong|south korea|taiwan|vietnam|thailand|indonesia|philippines|malaysia|bangalore|bengaluru|mumbai|delhi|hyderabad|chennai|tokyo|beijing|shanghai|seoul|jakarta|manila|bangkok|kuala lumpur)\b/gi },
+  { region: 'OCEANIA', pattern: /\b(australia|new zealand|sydney|melbourne|brisbane|perth|auckland|wellington)\b/gi },
+  { region: 'MEA', pattern: /\b(uae|dubai|abu dhabi|saudi arabia|riyadh|israel|tel aviv|south africa|johannesburg|cape town|egypt|cairo|nigeria|lagos|kenya|nairobi|qatar|doha)\b/gi },
+  { region: 'LATAM', pattern: /\b(brazil|mexico|argentina|chile|colombia|peru|sao paulo|são paulo|rio de janeiro|mexico city|buenos aires|santiago|bogota|lima)\b/gi },
 ]
 
-function detectRegion(text: string | null | undefined): Region {
+const HEADER_WINDOW_CHARS = 500
+const HEADER_WEIGHT = 3
+
+export function detectRegion(text: string | null | undefined): Region {
   if (!text) return 'UNKNOWN'
+  const header = text.slice(0, HEADER_WINDOW_CHARS)
+
+  let best: Region = 'UNKNOWN'
+  let bestScore = 0
   for (const { region, pattern } of REGION_PATTERNS) {
-    if (pattern.test(text)) return region
+    // Reset lastIndex on shared global regex to be safe across calls.
+    pattern.lastIndex = 0
+    const totalMatches = text.match(pattern)?.length ?? 0
+    pattern.lastIndex = 0
+    const headerMatches = header.match(pattern)?.length ?? 0
+    const score = totalMatches + headerMatches * (HEADER_WEIGHT - 1)
+    if (score > bestScore) {
+      bestScore = score
+      best = region
+    }
   }
-  return 'UNKNOWN'
+  return best
+}
+
+/**
+ * Prefer a parsed structured location string (e.g. "Atlanta, GA, USA") over
+ * the full CV text. Empty / whitespace-only structured values fall back to cvText.
+ */
+function detectCandidateRegion(structuredLocation: string | null | undefined, cvText: string | null | undefined): Region {
+  const structured = structuredLocation?.trim()
+  if (structured) {
+    const region = detectRegion(structured)
+    if (region !== 'UNKNOWN') return region
+  }
+  return detectRegion(cvText)
 }
 
 function regionsAdjacent(a: Region, b: Region): boolean {
@@ -52,13 +85,14 @@ function regionsAdjacent(a: Region, b: Region): boolean {
 export function locationScore(
   job: JobForScoring,
   prefs: JobPreferences,
-  cvText?: string | null
+  cvText?: string | null,
+  cvStructuredLocation?: string | null,
 ): number {
   const locType = prefs.preferredLocationType
 
   // No explicit pref: derive candidate region from CV and compare to job region.
   if (!locType || locType === 'open') {
-    const cvRegion = detectRegion(cvText)
+    const cvRegion = detectCandidateRegion(cvStructuredLocation, cvText)
     const jobRegion = detectRegion(job.location)
     if (cvRegion === 'UNKNOWN' || jobRegion === 'UNKNOWN') return 60
     if (cvRegion === jobRegion) return 100
