@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { track } from '@/lib/analytics'
 
 interface SaveJobButtonProps {
   jobId: string
@@ -154,6 +155,7 @@ export function SaveJobButton({ jobId, companyName, jobTitle, jobUrl, logoUrl }:
         .eq('user_id', userId)
         .eq('job_id', jobId)
       setSaved(false)
+      track('rolepulse.job_unsaved', { job_id: jobId })
 
       await removePipelineEntry()
     } else {
@@ -161,6 +163,7 @@ export function SaveJobButton({ jobId, companyName, jobTitle, jobUrl, logoUrl }:
         .from('saved_jobs')
         .insert({ user_id: userId, job_id: jobId })
       setSaved(true)
+      track('rolepulse.job_saved', { job_id: jobId, company_name: companyName })
 
       if (companyName && jobTitle) {
         await createPipelineEntry()

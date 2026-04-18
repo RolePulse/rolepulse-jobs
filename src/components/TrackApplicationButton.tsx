@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { track } from '@/lib/analytics'
 
 interface TrackApplicationButtonProps {
   jobId: string
@@ -70,6 +71,13 @@ export function TrackApplicationButton({
     })
     if (res.ok) {
       setTracked(true)
+      track('rolepulse.pipeline_tracked_job_added', {
+        job_id: jobId,
+        company_name: companyName,
+        match_score_bucket: matchScore == null
+          ? 'unknown'
+          : matchScore >= 70 ? 'high' : matchScore >= 40 ? 'mid' : 'low',
+      })
     }
     setAdding(false)
   }

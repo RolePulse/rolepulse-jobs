@@ -7,6 +7,7 @@ import DOMPurify from 'isomorphic-dompurify'
 import { SaveJobButton } from '@/components/SaveJobButton'
 import { CompanyLogo } from '@/components/CompanyLogo'
 import { TrackApplicationButton } from '@/components/TrackApplicationButton'
+import { track } from '@/lib/analytics'
 
 // ── CV Scorer component ───────────────────────────────────────────────────────
 interface ScoreResult {
@@ -527,6 +528,14 @@ export default function JobPage() {
         // Increment view count (fire and forget)
         supabase.from('jobs').update({ view_count: (jobData.view_count || 0) + 1 }).eq('id', jobData.id).then(() => {})
 
+        track('rolepulse.job_viewed', {
+          job_id: jobData.id,
+          slug: jobData.slug,
+          role_type: jobData.role_type ?? null,
+          remote: jobData.remote ?? null,
+          company_id: jobData.company_id ?? null,
+        })
+
         // Fetch related jobs (up to 6)
         if (jobData.role_type) {
           const { data: related } = await supabase
@@ -630,6 +639,12 @@ export default function JobPage() {
     if (isEmployerListing) {
       e.preventDefault()
       document.getElementById('apply')?.scrollIntoView({ behavior: 'smooth' })
+      track('rolepulse.job_applied', { job_id: job.id, listing_type: 'employer' })
+    } else {
+      track('rolepulse.job_apply_external_clicked', {
+        job_id: job.id,
+        ats_source: job.source ?? null,
+      })
     }
   }
 

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { Nav } from "@/components/Nav";
+import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -34,8 +35,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={GeistSans.className}>
       <body>
-        <Nav />
-        {children}
+        <AnalyticsProvider>
+          <Nav />
+          {children}
+        </AnalyticsProvider>
       </body>
     </html>
   );
