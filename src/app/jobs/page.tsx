@@ -441,6 +441,46 @@ function JobsForYouContent({
   )
 }
 
+function CvReadyToast() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('cv_ready') === 'true') {
+      setVisible(true)
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete('cv_ready')
+      const qs = params.toString()
+      router.replace(qs ? `/jobs?${qs}` : '/jobs', { scroll: false })
+      const timer = setTimeout(() => setVisible(false), 6000)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams, router])
+
+  if (!visible) return null
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-white border border-rp-border shadow-lg rounded-lg px-4 py-3 flex items-center gap-3 max-w-md"
+    >
+      <span className="text-lg" aria-hidden="true">✅</span>
+      <span className="text-sm text-slate-800 font-medium">
+        Your CV from CV Pulse is loaded — we&apos;ll match you to roles.
+      </span>
+      <button
+        onClick={() => setVisible(false)}
+        className="text-slate-400 hover:text-slate-600 text-sm ml-auto"
+        aria-label="Dismiss"
+      >
+        ✕
+      </button>
+    </div>
+  )
+}
+
 function JobsList() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -841,6 +881,7 @@ function JobsList() {
 
   return (
     <>
+      <CvReadyToast />
       {/* Dark hero section */}
       <div
         className="relative"
