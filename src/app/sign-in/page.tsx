@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 function GoogleIcon() {
@@ -18,11 +19,10 @@ function GoogleIcon() {
 
 function SignInForm() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-  const router = useRouter()
+  const [linkSent, setLinkSent] = useState(false)
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect') || '/jobs'
 
@@ -47,7 +47,12 @@ function SignInForm() {
     setLoading(true)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
+      },
+    })
 
     if (error) {
       setError(error.message)
@@ -55,8 +60,34 @@ function SignInForm() {
       return
     }
 
-    const safeRedirect = redirect.startsWith('/') ? redirect : '/jobs'
-    router.push(safeRedirect)
+    setLinkSent(true)
+    setLoading(false)
+  }
+
+  if (linkSent) {
+    return (
+      <div className="min-h-screen bg-rp-white flex items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center">
+          <div className="mx-auto w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-5">
+            <Mail className="w-7 h-7 text-emerald-600" />
+          </div>
+          <h1 className="text-2xl font-semibold text-rp-text-1 mb-2">Check your email</h1>
+          <p className="text-sm text-rp-text-3 mb-6">
+            We sent a sign-in link to <span className="font-medium text-rp-text-1">{email}</span>. Click the link to sign in — no password needed.
+          </p>
+          <p className="mt-4 text-xs text-rp-text-3">
+            Didn&apos;t get the email? Check your spam folder or{' '}
+            <button
+              type="button"
+              onClick={() => setLinkSent(false)}
+              className="text-rp-accent hover:underline"
+            >
+              try again
+            </button>
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -100,21 +131,6 @@ function SignInForm() {
             />
           </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-rp-text-2 mb-1">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-rp-border rounded-lg text-rp-text-1 text-sm focus:outline-none focus:ring-2 focus:ring-rp-accent focus:border-transparent"
-              placeholder="Your password"
-            />
-          </div>
-
           {error && (
             <p className="text-sm text-red-600">{error}</p>
           )}
@@ -124,8 +140,9 @@ function SignInForm() {
             disabled={loading}
             className="w-full bg-rp-accent text-white font-semibold py-2.5 px-4 rounded-full hover:bg-rp-accent-dk transition-colors disabled:opacity-50"
           >
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? 'Sending link…' : 'Send sign-in link'}
           </button>
+          <p className="text-xs text-rp-text-3 text-center">We&apos;ll email you a one-tap link — no password needed.</p>
         </form>
 
         <p className="mt-6 text-sm text-rp-text-3 text-center">

@@ -1,10 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Suspense } from 'react'
 import { Mail } from 'lucide-react'
 
 function GoogleIcon() {
@@ -20,12 +19,10 @@ function GoogleIcon() {
 
 function SignUpForm() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [confirmationSent, setConfirmationSent] = useState(false)
-  const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect') || '/jobs'
 
@@ -44,36 +41,16 @@ function SignUpForm() {
     }
   }
 
-  async function handleStagedCv() {
-    const stagedCvText = sessionStorage.getItem('staged_cv_text')
-    const stagedCvFilename = sessionStorage.getItem('staged_cv_filename')
-    const returnUrl = sessionStorage.getItem('staged_cv_return_url') || '/jobs'
-    if (stagedCvText) {
-      try {
-        await fetch('/api/cv/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cvText: stagedCvText, cvFilename: stagedCvFilename }),
-        })
-      } catch { /* non-fatal */ }
-      sessionStorage.removeItem('staged_cv_text')
-      sessionStorage.removeItem('staged_cv_filename')
-      sessionStorage.removeItem('staged_cv_return_url')
-      return returnUrl
-    }
-    return null
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
 
     const supabase = createClient()
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      password,
       options: {
+        shouldCreateUser: true,
         emailRedirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
       },
     })
@@ -84,14 +61,8 @@ function SignUpForm() {
       return
     }
 
-    await handleStagedCv()
-
-    if (data.session) {
-      router.push('/onboarding')
-    } else {
-      setConfirmationSent(true)
-      setLoading(false)
-    }
+    setConfirmationSent(true)
+    setLoading(false)
   }
 
   if (confirmationSent) {
@@ -103,14 +74,8 @@ function SignUpForm() {
           </div>
           <h1 className="text-2xl font-semibold text-rp-text-1 mb-2">Check your email</h1>
           <p className="text-sm text-rp-text-3 mb-6">
-            We sent a confirmation link to <span className="font-medium text-rp-text-1">{email}</span>. Click the link to activate your account, then come back to sign in.
+            We sent a sign-in link to <span className="font-medium text-rp-text-1">{email}</span>. Click the link to activate your account and continue.
           </p>
-          <Link
-            href={`/sign-in?redirect=${encodeURIComponent(redirect)}`}
-            className="inline-block bg-rp-accent text-white font-semibold py-2.5 px-6 rounded-full hover:bg-rp-accent-dk transition-colors"
-          >
-            Go to sign in
-          </Link>
           <p className="mt-4 text-xs text-rp-text-3">
             Didn&apos;t get the email? Check your spam folder or{' '}
             <button
@@ -167,22 +132,6 @@ function SignUpForm() {
             />
           </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-rp-text-2 mb-1">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="w-full px-3 py-2 border border-rp-border rounded-lg text-rp-text-1 text-sm focus:outline-none focus:ring-2 focus:ring-rp-accent focus:border-transparent"
-              placeholder="At least 6 characters"
-            />
-          </div>
-
           {error && (
             <p className="text-sm text-red-600">{error}</p>
           )}
@@ -192,9 +141,9 @@ function SignUpForm() {
             disabled={loading}
             className="w-full bg-rp-accent text-white font-semibold py-2.5 px-4 rounded-full hover:bg-rp-accent-dk transition-colors disabled:opacity-50"
           >
-            {loading ? 'Creating account…' : 'Sign up'}
+            {loading ? 'Sending link…' : 'Send sign-up link'}
           </button>
-          <p className="text-xs text-rp-text-3 text-center">Free account · No credit card · Unsubscribe anytime</p>
+          <p className="text-xs text-rp-text-3 text-center">Free account · No password · Unsubscribe anytime</p>
         </form>
 
         <p className="mt-6 text-sm text-rp-text-3 text-center">

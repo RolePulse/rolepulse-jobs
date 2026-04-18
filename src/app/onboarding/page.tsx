@@ -476,6 +476,23 @@ export default function OnboardingPage() {
         router.push('/sign-in')
         return
       }
+
+      // Flush any staged CV from pre-auth upload (sessionStorage survives magic-link round-trip in same tab)
+      try {
+        const stagedCvText = sessionStorage.getItem('staged_cv_text')
+        const stagedCvFilename = sessionStorage.getItem('staged_cv_filename')
+        if (stagedCvText) {
+          await fetch('/api/cv/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cvText: stagedCvText, cvFilename: stagedCvFilename }),
+          })
+          sessionStorage.removeItem('staged_cv_text')
+          sessionStorage.removeItem('staged_cv_filename')
+          sessionStorage.removeItem('staged_cv_return_url')
+        }
+      } catch { /* non-fatal */ }
+
       // If onboarding already completed, skip to /jobs
       const { data: profile } = await supabase
         .from('job_seeker_profiles')
