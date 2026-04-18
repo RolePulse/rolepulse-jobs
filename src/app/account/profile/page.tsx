@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { buildCvPulseHandoffUrl } from '@/lib/cvpulse-handoff'
+import { track } from '@/lib/analytics'
 
 function formatDate(iso: string | null): string {
   if (!iso) return ''
@@ -45,6 +47,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [cvPulseRescoreUrl, setCvPulseRescoreUrl] = useState<string>('https://www.cvpulse.io/score')
 
   // Preferences
   const [prefs, setPrefs] = useState<Preferences>({
@@ -65,6 +68,10 @@ export default function ProfilePage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/sign-in'); return }
+      const { data: { session } } = await supabase.auth.getSession()
+      setCvPulseRescoreUrl(
+        buildCvPulseHandoffUrl(session?.access_token, session?.refresh_token, '/score'),
+      )
       await Promise.all([fetchCvStatus(), fetchPreferences()])
     }
     checkAuth()
@@ -216,10 +223,13 @@ export default function ProfilePage() {
             <div className="h-4 w-48 bg-slate-100 animate-pulse rounded" />
           ) : hasCv ? (
             <>
-              <p className="text-xs text-slate-600 mb-4">
+              <p className="text-xs text-slate-600 mb-1">
                 📄 {cvFilename || 'my-cv'} · Uploaded {formatDate(cvUploadedAt)}
               </p>
-              <div className="flex gap-2 flex-wrap">
+              <p className="text-[11px] text-slate-500 mb-4">
+                Synced from CV Pulse
+              </p>
+              <div className="flex gap-2 flex-wrap items-center">
                 <label className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-3 py-1.5 cursor-pointer transition-colors">
                   {uploading ? 'Uploading…' : 'Replace CV'}
                   <input
@@ -230,6 +240,15 @@ export default function ProfilePage() {
                     onChange={e => e.target.files?.[0] && handleUploadOrReplace(e.target.files[0])}
                   />
                 </label>
+                <a
+                  href={cvPulseRescoreUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => { try { track('rolepulse.cvpulse_handoff_clicked', { source: 'profile_rescore' }) } catch { /* ignore */ } }}
+                  className="text-xs bg-rp-accent text-white hover:bg-rp-accent-dk rounded-full px-3 py-1.5 transition-colors"
+                >
+                  Re-score on CV Pulse ↗
+                </a>
                 <button
                   onClick={handleDelete}
                   className="text-xs text-red-500 hover:text-red-700 px-3 py-1.5 transition-colors"
