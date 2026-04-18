@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { buildCvPulseHandoffUrl } from '@/lib/cvpulse-handoff'
+import { track } from '@/lib/analytics'
 
 export function Nav() {
   const pathname = usePathname()
@@ -11,13 +13,18 @@ export function Nav() {
   const [user, setUser] = useState<any>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
+  const [cvPulseUrl, setCvPulseUrl] = useState<string>('https://www.cvpulse.io')
 
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCvPulseUrl(buildCvPulseHandoffUrl(session?.access_token, session?.refresh_token, '/score'))
+    })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
+      setCvPulseUrl(buildCvPulseHandoffUrl(session?.access_token, session?.refresh_token, '/score'))
     })
 
     return () => subscription.unsubscribe()
@@ -113,7 +120,13 @@ export function Nav() {
                 <span className="text-xs">{accountOpen ? '▲' : '▼'}</span>
               </button>
               {accountOpen && (
-                <div className="absolute right-0 top-8 w-44 bg-white rounded-xl border border-rp-border shadow-lg py-1 z-50">
+                <div className="absolute right-0 top-8 w-60 bg-white rounded-xl border border-rp-border shadow-lg py-1 z-50">
+                  {user.email && (
+                    <div className="px-4 py-2.5 border-b border-rp-border">
+                      <p className="text-[10px] uppercase tracking-wide text-rp-text-3">Signed in as</p>
+                      <p className="text-sm text-rp-text-1 font-medium truncate" title={user.email}>{user.email}</p>
+                    </div>
+                  )}
                   <Link
                     href="/account/profile"
                     className="block px-4 py-2 text-sm text-rp-text-1 hover:bg-rp-bg transition-colors"
@@ -142,6 +155,20 @@ export function Nav() {
                   >
                     Employer dashboard
                   </Link>
+                  <hr className="my-1 border-rp-border" />
+                  <a
+                    href={cvPulseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                      try { track('rolepulse.cvpulse_handoff_clicked', { source: 'account_menu' }) } catch { /* ignore */ }
+                      setAccountOpen(false)
+                    }}
+                    className="flex items-center justify-between px-4 py-2 text-sm text-rp-text-1 hover:bg-rp-bg transition-colors"
+                  >
+                    <span>Also on CV Pulse</span>
+                    <span className="text-rp-text-3">↗</span>
+                  </a>
                   <hr className="my-1 border-rp-border" />
                   <button
                     onClick={handleSignOut}
@@ -218,11 +245,23 @@ export function Nav() {
           </Link>
           {user ? (
             <>
+              {user.email && (
+                <p className="text-[11px] uppercase tracking-wide text-zinc-500">Signed in as {user.email}</p>
+              )}
               <Link href="/pipeline" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Pipeline</Link>
               <Link href="/account/profile" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>My profile</Link>
               <Link href="/account/saved" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Saved jobs</Link>
               <Link href="/account/alerts" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Job alerts</Link>
               <Link href="/employers/dashboard" className="text-sm text-zinc-400" onClick={() => setMenuOpen(false)}>Employer dashboard</Link>
+              <a
+                href={cvPulseUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => { try { track('rolepulse.cvpulse_handoff_clicked', { source: 'mobile_menu' }) } catch { /* ignore */ } ; setMenuOpen(false) }}
+                className="text-sm text-zinc-400"
+              >
+                Also on CV Pulse ↗
+              </a>
               <button onClick={handleSignOut} className="text-left text-sm text-red-400">Sign out</button>
             </>
           ) : (
