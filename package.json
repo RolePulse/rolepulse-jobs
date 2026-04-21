@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:pii": "node scripts/check-pii-in-track.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",

@@ -92,6 +92,45 @@ export function isValidEventName(event: string): boolean {
   return EVENT_NAME_RE.test(event)
 }
 
+// --- ROL-81: per-user sampling / rate limit -----------------------------------
+// If a single user_id/anon_id exceeds EVENT_BUDGET events inside WINDOW_MS,
+// we drop ~90% of subsequent events in that window (keep ~1 in 10) to prevent
+// runaway loops from flooding usage_events. Best-effort in-memory counter —
+// each lambda instance keeps its own window, so real-world throttling is
+// approximate but sufficient for the runaway-loop case the ticket targets.
+const EVENT_BUDGET = 100
+const WINDOW_MS = 60_000
+const SAMPLE_RATE = 0.1 // keep 10%
+
+type WindowState = { count: number; windowStart: number }
+const _rateWindows = new Map<string, WindowState>()
+
+// Deterministic pseudo-random hook so unit tests can pin sampling.
+let _sampleRng: () => number = Math.random
+export function __setSampleRng(fn: (() => number) | null) {
+  _sampleRng = fn ?? Math.random
+}
+
+export function shouldSampleEvent(
+  key: string | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (!key) return true // no identity → cannot rate-limit; always accept
+  const prev = _rateWindows.get(key)
+  if (!prev || now - prev.windowStart >= WINDOW_MS) {
+    _rateWindows.set(key, { count: 1, windowStart: now })
+    return true
+  }
+  prev.count += 1
+  if (prev.count <= EVENT_BUDGET) return true
+  return _sampleRng() < SAMPLE_RATE
+}
+
+// Exposed for tests.
+export function __resetSamplingWindows() {
+  _rateWindows.clear()
+}
+
 let _serviceClient: SupabaseClient | null = null
 function serviceClient(): SupabaseClient | null {
   if (_serviceClient) return _serviceClient
@@ -136,6 +175,10 @@ export async function track(
   }
 
   const clean = stripPII(props)
+
+  // Rate-limit / sample by identity key (userId preferred, anonId fallback).
+  const identityKey = ctx.userId ?? ctx.anonId ?? null
+  if (!shouldSampleEvent(identityKey)) return
 
   if (typeof window !== 'undefined') {
     if (POSTHOG_KEY) {
