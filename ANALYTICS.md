@@ -57,3 +57,62 @@ Every event is auto-tagged with `env` (via `posthog.register`) from `NEXT_PUBLIC
 - New Supabase table `jobs.usage_events` for durable, SQL-queryable backup
 - `analytics.ts` dual-writes each event to PostHog AND to `usage_events`
 - Ops Hub `/feature-usage` page surfaces weekly DAU-per-feature + retention
+
+## Phase 3 — guardrails (ROL-81, shipped 2026-04-21)
+
+### Environment tagging
+Every server-side write includes `env = VERCEL_ENV ?? NODE_ENV ?? 'development'`.
+The Ops Hub `/feature-usage` page (ROL-80) defaults to `env='production'` so
+preview and dev traffic never pollute the business-level view.
+
+### Rate limit / sampling
+The `track()` helper maintains a per-identity (user_id, falling back to
+anon_id) rolling 60-second budget of **100 events**. Past that budget, we
+drop 90% of further events in the same window (`SAMPLE_RATE = 0.1`). This
+protects `usage_events` from a runaway client loop without losing
+granularity on normal traffic. See `shouldSampleEvent` in
+`src/lib/analytics.ts`.
+
+### Retention
+`public.usage_events` keeps **180 days** of data. The retention cron is
+owned by the CV Pulse deployment (`/api/admin/prune-usage-events`, daily at
+03:30 UTC) — both products write into the same `public.usage_events` table
+so we only need one sweeper.
+
+### Static-grep PII check
+`scripts/check-pii-in-track.mjs` walks `src/` and fails CI if any of the
+forbidden keys appear as a property name inside a `track(...)` call:
+`email, password, cv_text, resume_text, raw_text, full_name, phone, query,
+search_query, jd_text`. Run locally with `node scripts/check-pii-in-track.mjs`.
+
+## Privacy: what we log / what we don't
+
+> Copy-pasteable summary for the public privacy policy.
+
+**We log (per event):**
+- An anonymous `feature_key` (e.g. `rolepulse.job_viewed`)
+- Your user ID (if signed in) or an opaque anonymous session ID
+- A small set of non-identifying properties: job_id, company_id, role_type,
+  remote flag, source surface (`search`/`direct`/`pipeline`/`email`),
+  match-score bucket (e.g. `70-84`, never the raw score), `query_len`
+  (length of a search string, never the string itself), `ats_host` (public
+  ATS domain like `boards.greenhouse.io`, never the full apply URL)
+- The environment the event came from (`production` / `preview` / `development`)
+- A UTC timestamp
+
+**We do NOT log:**
+- Your email, password, phone number, or full name
+- Your CV content, resume text, or resume URL
+- Job-description text or JD URLs you paste into the matcher
+- The text of your search queries — we only log their character length
+- Full apply URLs (which can contain tracking tokens or candidate IDs) —
+  we only log the public ATS host
+- Raw numeric match scores — we only store score buckets
+
+**How we enforce it:**
+- `stripPII()` runs on every props payload before dispatch (`src/lib/analytics.ts`)
+- A CI check (`scripts/check-pii-in-track.mjs`) blocks any PR that adds a
+  forbidden key inside a `track(...)` call
+- Events are sampled to 10% past 100 events/minute per user to prevent
+  accidental PII amplification via a runaway loop
+- `usage_events` rows are deleted after 180 days (retention cron in CV Pulse)
