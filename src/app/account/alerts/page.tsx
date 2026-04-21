@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { track } from '@/lib/analytics'
 
 const ROLE_TYPES = ['All', 'AE', 'SDR', 'CSM', 'RevOps', 'Marketing', 'Growth']
 
@@ -61,6 +62,9 @@ export default function AlertsPage() {
         alert_role_type: roleType === 'All' ? null : roleType,
         alert_remote_only: remoteOnly,
       })
+
+    const filterCount = (roleType && roleType !== 'All' ? 1 : 0) + (remoteOnly ? 1 : 0)
+    track('rolepulse.alert_created', { filter_count: filterCount })
 
     setSaving(false)
     setSuccess(true)

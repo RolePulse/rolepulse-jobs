@@ -9,6 +9,35 @@ import { CompanyLogo } from '@/components/CompanyLogo'
 import { TrackApplicationButton } from '@/components/TrackApplicationButton'
 import { track } from '@/lib/analytics'
 
+function scoreBucket(score: number | null | undefined): 'high' | 'mid' | 'low' | 'unknown' {
+  if (score == null) return 'unknown'
+  if (score >= 70) return 'high'
+  if (score >= 40) return 'mid'
+  return 'low'
+}
+
+function extractHost(url: string | null | undefined): string | null {
+  if (!url) return null
+  try { return new URL(url).host } catch { return null }
+}
+
+function detectViewSource(): 'search' | 'direct' | 'pipeline' | 'email' {
+  if (typeof window === 'undefined') return 'direct'
+  try {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('utm_source') === 'email' || url.searchParams.get('src') === 'email') return 'email'
+    const ref = document.referrer
+    if (!ref) return 'direct'
+    const refUrl = new URL(ref)
+    if (refUrl.host !== window.location.host) return 'direct'
+    if (refUrl.pathname.startsWith('/pipeline')) return 'pipeline'
+    if (refUrl.pathname === '/jobs' || refUrl.pathname.startsWith('/jobs?')) return 'search'
+    return 'direct'
+  } catch {
+    return 'direct'
+  }
+}
+
 // ── CV Scorer component ───────────────────────────────────────────────────────
 interface ScoreResult {
   score: number
@@ -89,6 +118,10 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
               detectedRole: cached.detected_role || '',
             })
             setState('done')
+            track('rolepulse.cv_match_score_viewed', {
+              job_id: jobId,
+              match_score_bucket: scoreBucket(cached.score),
+            })
             return
           }
 
@@ -134,6 +167,10 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
       const data = await scoreRes.json()
       setResult(data)
       setState('done')
+      track('rolepulse.cv_match_score_viewed', {
+        job_id: jobId,
+        match_score_bucket: scoreBucket(data.score),
+      })
 
       // Save to cache if logged in (use ref to avoid stale closure)
       if (isLoggedInRef.current) {
@@ -513,6 +550,16 @@ export default function JobPage() {
   const [relatedJobs, setRelatedJobs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [cleanHtml, setCleanHtml] = useState('')
+  const [hasCv, setHasCv] = useState<boolean>(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/cv/saved')
+      .then(r => r.ok ? r.json() : { hasCv: false })
+      .then(d => { if (!cancelled) setHasCv(!!d?.hasCv) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     async function fetchJob() {
@@ -534,6 +581,7 @@ export default function JobPage() {
           role_type: jobData.role_type ?? null,
           remote: jobData.remote ?? null,
           company_id: jobData.company_id ?? null,
+          source: detectViewSource(),
         })
 
         // Fetch related jobs (up to 6)
@@ -639,11 +687,12 @@ export default function JobPage() {
     if (isEmployerListing) {
       e.preventDefault()
       document.getElementById('apply')?.scrollIntoView({ behavior: 'smooth' })
-      track('rolepulse.job_applied', { job_id: job.id, listing_type: 'employer' })
+      track('rolepulse.job_applied', { job_id: job.id, listing_type: 'employer', has_cv: hasCv })
     } else {
       track('rolepulse.job_apply_external_clicked', {
         job_id: job.id,
         ats_source: job.source ?? null,
+        ats_host: extractHost(job.apply_url),
       })
     }
   }

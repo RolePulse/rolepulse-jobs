@@ -8,6 +8,14 @@ import { JobRow, type MatchScoreState } from '@/components/JobRow'
 import { JobRowSkeleton } from '@/components/JobRowSkeleton'
 import { compositeScore, locationScore, salaryScore, type JobPreferences, type JobForScoring } from '@/lib/matchScoring'
 import { formatSalary } from '@/lib/salary'
+import { track } from '@/lib/analytics'
+
+function resultCountBucket(n: number): '0' | '1-10' | '11-50' | '51+' {
+  if (n === 0) return '0'
+  if (n <= 10) return '1-10'
+  if (n <= 50) return '11-50'
+  return '51+'
+}
 
 const PAGE_SIZE = 50
 
@@ -675,6 +683,22 @@ function JobsList() {
       const finalJobs = diversify(dedupedJobs)
       setJobs(finalJobs)
       setLoading(false)
+
+      const activeFilters = [
+        selectedRole && selectedRole !== 'all' ? 1 : 0,
+        selectedCompany ? 1 : 0,
+        selectedLocation ? 1 : 0,
+        selectedSalary ? 1 : 0,
+        selectedRemoteRegion ? 1 : 0,
+      ].reduce((a, b) => a + b, 0)
+
+      if (q || activeFilters > 0) {
+        track('rolepulse.search_performed', {
+          query_len: q.length,
+          filter_count: activeFilters,
+          result_count_bucket: resultCountBucket(count || 0),
+        })
+      }
 
       // Salary columns don't exist in jobs schema — hide salary filters
       setHasSalaryData(false)
