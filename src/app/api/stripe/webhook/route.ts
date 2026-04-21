@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { track } from '@/lib/analytics'
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-03-25.dahlia' })
@@ -69,6 +70,13 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`Job ${job_id} activated via Stripe session ${session.id}`)
+
+    const tier = (session.metadata?.tier ?? '').toLowerCase()
+    const newsletterBundle = tier.includes('newsletter')
+    await track('rolepulse.employer_posted_job', {
+      tier: tier || 'unknown',
+      newsletter_bundle: newsletterBundle,
+    }, { userId: employer_id ?? undefined })
   }
 
   return NextResponse.json({ received: true })

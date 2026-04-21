@@ -74,6 +74,7 @@ export function TrackApplicationButton({
       track('rolepulse.pipeline_tracked_job_added', {
         job_id: jobId,
         company_name: companyName,
+        stage: 'saved',
         match_score_bucket: matchScore == null
           ? 'unknown'
           : matchScore >= 70 ? 'high' : matchScore >= 40 ? 'mid' : 'low',
