@@ -847,7 +847,7 @@ function JobsList() {
               }
               const locScore_ = locationScore(job as JobForScoring, effectivePrefs, cvText)
               const salScore_ = salaryScore(job as JobForScoring, effectivePrefs)
-              const total = compositeScore(cv, locScore_, salScore_, { jobTitle: job.title, cvText })
+              const total = compositeScore(cv, locScore_, salScore_, { jobTitle: job.title, jobDescription: job.description, cvText })
               breakdowns[job.id] = { cvScore: cv, locScore: locScore_, salScore: salScore_, total }
               return { job, total }
             })
@@ -877,7 +877,7 @@ function JobsList() {
           const cv = cvScores[job.id] ?? null
           const locScore_ = locationScore(job as JobForScoring, finalEffectivePrefs, cvText)
           const salScore_ = salaryScore(job as JobForScoring, finalEffectivePrefs)
-          const total = compositeScore(cv, locScore_, salScore_, { jobTitle: job.title, cvText })
+          const total = compositeScore(cv, locScore_, salScore_, { jobTitle: job.title, jobDescription: job.description, cvText })
           finalBreakdowns[job.id] = { cvScore: cv, locScore: locScore_, salScore: salScore_, total }
           return { job, total }
         })
