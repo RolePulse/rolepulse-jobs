@@ -159,39 +159,250 @@ export function salaryScore(job: JobForScoring, prefs: JobPreferences): number {
   return 60
 }
 
-type FunctionSignal = 'sales' | 'marketing' | 'customer_success' | 'revops' | 'partnerships'
+// ─── Role family taxonomy ────────────────────────────────────────────────────
+// Deterministic 8-family GTM taxonomy. Each role text maps to at most one
+// family. Patterns are ordered most-specific-first so e.g. "Sales Engineer"
+// resolves to `presales` before `sales`.
+export type RoleFamily =
+  | 'sales'
+  | 'presales'
+  | 'customer_success'
+  | 'implementation'
+  | 'marketing'
+  | 'revops'
+  | 'partnerships'
+  | 'leadership'
 
-function detectFunctions(text: string): FunctionSignal[] {
-  const signals: Array<{ type: FunctionSignal, pattern: RegExp }> = [
-    {
-      type: 'sales',
-      pattern: /\b(account executive|ae\b|sales leader|sales leadership|sales director|sales manager|vp sales|head of sales|sales development|business development|bdr\b|sdr\b|new business|quota|pipeline|prospecting|closing|revenue)\b/i,
-    },
-    {
-      type: 'marketing',
-      pattern: /\b(product marketing|marketing manager|marketing director|demand gen|demand generation|growth marketing|brand marketing|content marketing|field marketing|go-to-market|gtm marketing|positioning|messaging|campaigns?)\b/i,
-    },
-    {
-      type: 'customer_success',
-      pattern: /\b(customer success|csm\b|account management|customer retention|renewals|implementation|onboarding)\b/i,
-    },
-    {
-      type: 'revops',
-      pattern: /\b(revops|revenue operations|sales operations|marketing operations|go-to-market operations|crm admin|salesforce administrator)\b/i,
-    },
-    {
-      type: 'partnerships',
-      pattern: /\b(partnerships?|channel|alliances?|partner manager|ecosystem)\b/i,
-    },
-  ]
+const FAMILY_TITLE_PATTERNS: Array<{ family: RoleFamily; patterns: RegExp[] }> = [
+  {
+    family: 'presales',
+    patterns: [
+      /\bpre[-\s]?sales\b/i,
+      /\bsolutions?\s+engineer/i,
+      /\bsales\s+engineer/i,
+      /\bsolutions?\s+consultant/i,
+      /\btechnical\s+account\s+manager\b/i,
+      /\btam\b/i,
+      /\bvalue\s+engineer/i,
+      /\bsolutions?\s+architect/i,
+    ],
+  },
+  {
+    family: 'implementation',
+    patterns: [
+      /\bimplementation\s+(manager|specialist|consultant|lead)/i,
+      /\bonboarding\s+(manager|specialist|lead)/i,
+      /\bprofessional\s+services\b/i,
+      /\bdeployment\s+(specialist|engineer|manager)/i,
+      /\bintegration\s+consultant\b/i,
+    ],
+  },
+  {
+    family: 'customer_success',
+    patterns: [
+      /\bcustomer\s+success/i,
+      /\bcsm\b/i,
+      /\baccount\s+manager(?!\s*[-,]?\s*sales)/i,
+      /\baccount\s+management\b/i,
+      /\brenewals?\b/i,
+      /\bclient\s+success/i,
+      /\bcustomer\s+experience\s+manager\b/i,
+      /\bretention\s+(specialist|manager)/i,
+    ],
+  },
+  {
+    family: 'marketing',
+    patterns: [
+      /\bproduct\s+marketing/i,
+      /\bpmm\b/i,
+      /\bmarketing\s+(manager|director|lead|coordinator)/i,
+      /\bdemand\s+gen(eration)?\b/i,
+      /\bgrowth\s+marketing\b/i,
+      /\bbrand\s+marketing\b/i,
+      /\bcontent\s+marketing\b/i,
+      /\bfield\s+marketing\b/i,
+      /\bmarketing\s+operations\b/i,
+      /\bhead\s+of\s+marketing\b/i,
+      /\b(cmo|vp\s+marketing)\b/i,
+    ],
+  },
+  {
+    family: 'revops',
+    patterns: [
+      /\brevops\b/i,
+      /\brevenue\s+operations\b/i,
+      /\bsales\s+operations\b/i,
+      /\bgtm\s+operations\b/i,
+      /\bsalesforce\s+administrator\b/i,
+      /\bcrm\s+administrator\b/i,
+      /\bsales\s+analytics\b/i,
+    ],
+  },
+  {
+    family: 'partnerships',
+    patterns: [
+      /\bpartnerships?\s+(manager|director|lead)/i,
+      /\bchannel\s+(manager|director|sales)/i,
+      /\balliances?\s+(manager|director|lead)/i,
+      /\bpartner\s+(manager|director|lead)/i,
+      /\becosystem\s+(manager|partnerships?)/i,
+    ],
+  },
+  {
+    family: 'leadership',
+    patterns: [
+      /\bchief\s+revenue\s+officer\b/i,
+      /\bcro\b/i,
+      /\bchief\s+customer\s+officer\b/i,
+      /\bcco\b/i,
+      /\bhead\s+of\s+revenue\b/i,
+      /\bvp\s+(gtm|go-to-market|revenue)\b/i,
+      /\bgeneral\s+manager.*(gtm|revenue|sales)\b/i,
+    ],
+  },
+  {
+    family: 'sales',
+    patterns: [
+      /\baccount\s+executive\b/i,
+      /\bae\b/i,
+      /\bsales\s+(manager|director|leader|leadership|representative|rep)\b/i,
+      /\bvp\s+sales\b/i,
+      /\bhead\s+of\s+sales\b/i,
+      /\bbusiness\s+development\s+representative\b/i,
+      /\bbdr\b/i,
+      /\bsales\s+development\s+representative\b/i,
+      /\bsdr\b/i,
+      /\bnew\s+business\b/i,
+      /\b(enterprise|inside|outside|field)\s+sales\b/i,
+      /\bterritory\s+manager\b/i,
+    ],
+  },
+]
 
-  return signals.filter(signal => signal.pattern.test(text)).map(signal => signal.type)
+function detectFamilyFromText(text: string | null | undefined): RoleFamily | null {
+  if (!text) return null
+  for (const { family, patterns } of FAMILY_TITLE_PATTERNS) {
+    if (patterns.some(p => p.test(text))) return family
+  }
+  return null
 }
+
+// CV-side dominant-family detection via weighted keyword frequency.
+// Picks ONE family — same input always returns the same family.
+const CV_FAMILY_KEYWORDS: Record<RoleFamily, string[]> = {
+  sales: [
+    'account executive', 'sales manager', 'sales director', 'sales leader',
+    'vp sales', 'head of sales', 'quota', 'new business', 'pipeline generation',
+    'territory', 'prospecting', 'cold call', 'cold calling', 'meddic', 'meddpicc',
+    'bant', 'closed-won', 'closed won', 'deal cycle', 'closing',
+  ],
+  presales: [
+    'solutions engineer', 'sales engineer', 'pre-sales', 'presales',
+    'proof of concept', 'technical demo', 'solutions consultant',
+    'rfp response', 'technical discovery', 'sandbox', 'value engineer',
+    'solutions architect', 'pocs', 'technical evaluation',
+  ],
+  customer_success: [
+    'customer success', 'csm', 'account manager', 'account management',
+    'renewals', 'retention', 'churn', 'nps', 'qbr', 'gainsight',
+    'health score', 'ebr', 'lifecycle', 'success plan', 'totango',
+  ],
+  implementation: [
+    'implementation', 'onboarding', 'deployment', 'professional services',
+    'integration consultant', 'go-live', 'system rollout',
+  ],
+  marketing: [
+    'product marketing', 'demand generation', 'demand gen', 'campaigns',
+    'content marketing', 'brand', 'seo', 'sem', 'marketing automation',
+    'mql', 'lead generation', 'paid social', 'paid search', 'abm',
+  ],
+  revops: [
+    'revops', 'revenue operations', 'sales operations', 'salesforce admin',
+    'territory planning', 'quota planning', 'forecasting models',
+    'pipeline hygiene', 'deal desk', 'compensation planning',
+  ],
+  partnerships: [
+    'partnerships', 'alliances', 'channel manager', 'partner ecosystem',
+    'co-sell', 'reseller', 'partner program', 'channel sales',
+  ],
+  leadership: [
+    'chief revenue officer', 'cro', 'head of revenue', 'vp go-to-market',
+    'vp gtm', 'gtm leader', 'p&l', 'board reporting',
+  ],
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+  if (!needle) return 0
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`\\b${escaped}\\b`, 'gi')
+  return (haystack.match(re) || []).length
+}
+
+function detectDominantFamilyFromCV(cvText: string | null | undefined): RoleFamily | null {
+  if (!cvText) return null
+  const text = cvText.toLowerCase()
+  const scores: Partial<Record<RoleFamily, number>> = {}
+
+  for (const [family, keywords] of Object.entries(CV_FAMILY_KEYWORDS) as Array<[RoleFamily, string[]]>) {
+    let count = 0
+    for (const kw of keywords) count += countOccurrences(text, kw)
+    if (count > 0) scores[family] = count
+  }
+
+  // Boost: if a clear current-role title is detected in the CV header window,
+  // weight it heavily — current title is the strongest signal of "what I do now".
+  const headerFamily = detectFamilyFromText(cvText.slice(0, 800))
+  if (headerFamily) scores[headerFamily] = (scores[headerFamily] ?? 0) + 6
+
+  let best: RoleFamily | null = null
+  let bestCount = 0
+  for (const [family, count] of Object.entries(scores) as Array<[RoleFamily, number]>) {
+    if (count > bestCount) {
+      bestCount = count
+      best = family
+    }
+  }
+
+  // Require minimum signal to avoid false confidence
+  return bestCount >= 2 ? best : null
+}
+
+// 8×8 family distance matrix. Values are penalty points (0–50).
+// 0 = perfect family match → no penalty.
+// Higher = more cross-functional mismatch.
+// Calibrated so that adjacent families (e.g. sales↔presales) drop a "Strong
+// match" (≥80) into "Good/Partial" territory rather than zeroing it out.
+const FAMILY_DISTANCE: Record<RoleFamily, Record<RoleFamily, number>> = {
+  sales:            { sales: 0,  presales: 25, customer_success: 20, implementation: 35, marketing: 40, revops: 35, partnerships: 25, leadership: 10 },
+  presales:         { sales: 25, presales: 0,  customer_success: 25, implementation: 20, marketing: 40, revops: 35, partnerships: 30, leadership: 25 },
+  customer_success: { sales: 20, presales: 25, customer_success: 0,  implementation: 15, marketing: 35, revops: 30, partnerships: 25, leadership: 20 },
+  implementation:   { sales: 35, presales: 20, customer_success: 15, implementation: 0,  marketing: 40, revops: 30, partnerships: 35, leadership: 30 },
+  marketing:        { sales: 40, presales: 40, customer_success: 35, implementation: 40, marketing: 0,  revops: 25, partnerships: 35, leadership: 20 },
+  revops:           { sales: 35, presales: 35, customer_success: 30, implementation: 30, marketing: 25, revops: 0,  partnerships: 35, leadership: 25 },
+  partnerships:     { sales: 25, presales: 30, customer_success: 25, implementation: 35, marketing: 35, revops: 35, partnerships: 0,  leadership: 20 },
+  leadership:       { sales: 10, presales: 25, customer_success: 20, implementation: 30, marketing: 20, revops: 25, partnerships: 20, leadership: 0 },
+}
+
+function familyMismatchPenalty(jobFamily: RoleFamily | null, cvFamily: RoleFamily | null): number {
+  if (!jobFamily || !cvFamily) return 0
+  return FAMILY_DISTANCE[cvFamily][jobFamily]
+}
+
+// Exported for use by callers that want the detected family separately
+// (e.g. analytics, debug breakdowns).
+export function classifyRole(text: string | null | undefined): RoleFamily | null {
+  return detectFamilyFromText(text)
+}
+
+export function classifyCv(cvText: string | null | undefined): RoleFamily | null {
+  return detectDominantFamilyFromCV(cvText)
+}
+
+// ─── Seniority signals (unchanged) ───────────────────────────────────────────
 
 function detectCvSignals(cvText: string | null | undefined): {
   seniority: 'leadership' | 'manager' | 'senior' | 'mid'
   languages: string[]
-  functions: FunctionSignal[]
 } {
   const text = (cvText || '').toLowerCase()
 
@@ -212,18 +423,19 @@ function detectCvSignals(cvText: string | null | undefined): {
     'dutch',
   ].filter(language => new RegExp(`\\b${language}\\b`, 'i').test(text))
 
-  const functions = detectFunctions(text)
-
-  return { seniority, languages, functions }
+  return { seniority, languages }
 }
 
-function mismatchPenalty(jobTitle: string | null | undefined, cvText: string | null | undefined): number {
+function mismatchPenalty(
+  jobTitle: string | null | undefined,
+  cvText: string | null | undefined,
+  jobDescription: string | null | undefined,
+): number {
   const title = (jobTitle || '').toLowerCase()
   if (!title) return 0
 
   let penalty = 0
-  const { seniority, languages, functions } = detectCvSignals(cvText)
-  const titleFunctions = detectFunctions(title)
+  const { seniority, languages } = detectCvSignals(cvText)
 
   const juniorRole = /\b(sdr|bdr|sales development|business development representative|associate|intern|graduate|entry level|junior)\b/.test(title)
   const managerRole = /\b(manager|team lead|lead)\b/.test(title)
@@ -241,18 +453,15 @@ function mismatchPenalty(jobTitle: string | null | undefined, cvText: string | n
     penalty += 30
   }
 
-  if (titleFunctions.length > 0 && functions.length > 0) {
-    const overlap = titleFunctions.some(fn => functions.includes(fn))
-    if (!overlap) {
-      penalty += 45
-
-      const titleIsMarketing = titleFunctions.includes('marketing')
-      const cvIsSales = functions.includes('sales')
-      if (titleIsMarketing && cvIsSales) {
-        penalty += 20
-      }
-    }
+  // Family-distance penalty. Detect job family from title first; fall back to
+  // the start of the description for ambiguous titles ("Account Manager" alone
+  // could be sales OR customer success — the description disambiguates).
+  let jobFamily = detectFamilyFromText(jobTitle)
+  if (!jobFamily && jobDescription) {
+    jobFamily = detectFamilyFromText(jobDescription.slice(0, 1500))
   }
+  const cvFamily = detectDominantFamilyFromCV(cvText)
+  penalty += familyMismatchPenalty(jobFamily, cvFamily)
 
   return penalty
 }
@@ -267,12 +476,13 @@ export function compositeScore(
   salScore: number,
   options?: {
     jobTitle?: string | null
+    jobDescription?: string | null
     cvText?: string | null
   }
 ): number {
   const cv = cvScore ?? 50
   const base = Math.round(cv * 0.75 + locScore * 0.15 + salScore * 0.10)
-  const penalty = mismatchPenalty(options?.jobTitle, options?.cvText)
+  const penalty = mismatchPenalty(options?.jobTitle, options?.cvText, options?.jobDescription)
   const ceiling = cv + 10
   return Math.max(0, Math.min(ceiling, base - penalty))
 }
