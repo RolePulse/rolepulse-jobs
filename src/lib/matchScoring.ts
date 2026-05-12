@@ -28,13 +28,14 @@ type Region = 'US' | 'UK' | 'EU' | 'CA' | 'APAC' | 'MEA' | 'LATAM' | 'OCEANIA' |
 // - `cambridge` / `oxford` are intentionally absent from the UK pattern because
 //   they collide with US locations (Cambridge, MA; Harvard/MIT; Oxford, MS).
 // - `(?<!new\s)england` prevents "New England" from matching the UK region.
-// - US state codes are matched only when preceded by a comma+space ("City, ST"),
-//   and must be uppercase to avoid collisions with common English words
-//   (e.g. "or", "in", "hi", "me", "ok", "la", "pa").
+// - US state codes are matched after a comma or hyphen (e.g. "City, ST"
+//   or "Remote - ST"), with an optional space, and must be uppercase to
+//   avoid collisions with common English words (e.g. "or", "in", "hi",
+//   "me", "ok", "la", "pa").
 const REGION_PATTERNS: Array<{ region: Region, pattern: RegExp }> = [
   { region: 'UK', pattern: /\b(united kingdom|uk|(?<!new\s)england|scotland|wales|northern ireland|london|manchester|birmingham|leeds|bristol|edinburgh|glasgow|brighton)\b/gi },
   { region: 'US', pattern: /\b(united states|usa|u\.s\.a?\.?|us|alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|district of columbia|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming|nj|atlanta|chicago|austin|boston|denver|seattle|san francisco|los angeles|nyc|sf|missoula|nashville|phoenix|arlington|bethesda|raleigh|pittsburgh|columbus)\b/gi },
-  { region: 'US', pattern: /(?<=,\s)(?:AL|AK|AZ|AR|CA|CO|CT|DC|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/g },
+  { region: 'US', pattern: /(?<=[,\-]\s?)(?:AL|AK|AZ|AR|CA|CO|CT|DC|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/g },
   { region: 'CA', pattern: /\b(canada|toronto|vancouver|montreal|ottawa|calgary|edmonton)\b/gi },
   { region: 'EU', pattern: /\b(germany|france|spain|italy|portugal|netherlands|belgium|ireland|sweden|norway|finland|denmark|poland|czech|austria|switzerland|berlin|munich|paris|madrid|barcelona|rome|milan|amsterdam|brussels|dublin|stockholm|copenhagen|helsinki|warsaw|prague|vienna|zurich|lisbon)\b/gi },
   { region: 'APAC', pattern: /\b(india|china|japan|singapore|hong kong|south korea|taiwan|vietnam|thailand|indonesia|philippines|malaysia|bangalore|bengaluru|mumbai|delhi|hyderabad|chennai|tokyo|beijing|shanghai|seoul|jakarta|manila|bangkok|kuala lumpur)\b/gi },
@@ -426,13 +427,13 @@ function detectCvSignals(cvText: string | null | undefined): {
   return { seniority, languages }
 }
 
-function mismatchPenalty(
+function computeMismatchPenalty(
   jobTitle: string | null | undefined,
   cvText: string | null | undefined,
   jobDescription: string | null | undefined,
-): number {
+): { total: number; family: number } {
   const title = (jobTitle || '').toLowerCase()
-  if (!title) return 0
+  if (!title) return { total: 0, family: 0 }
 
   let penalty = 0
   const { seniority, languages } = detectCvSignals(cvText)
@@ -461,15 +462,22 @@ function mismatchPenalty(
     jobFamily = detectFamilyFromText(jobDescription.slice(0, 1500))
   }
   const cvFamily = detectDominantFamilyFromCV(cvText)
-  penalty += familyMismatchPenalty(jobFamily, cvFamily)
-
-  return penalty
+  const family = familyMismatchPenalty(jobFamily, cvFamily)
+  return { total: penalty + family, family }
 }
 
 /**
  * Composite match score: CV 75% + location 15% + salary 10%, with penalties for mismatch.
  * Ceiling at cvScore + 10 so a weak CV fit can never become a strong composite.
+ *
+ * Floor caps stop a strong CV alone from carrying a job across the Strong threshold
+ * when the candidate is the wrong region or wrong role family:
+ *   - locScore < 50 (cross-region without remote compensation) caps composite at 50
+ *   - family penalty ≥ 20 (cross-family role e.g. sales↔presales) caps composite at 55
  */
+const LOCATION_FLOOR_CAP = 50
+const FAMILY_FLOOR_CAP = 55
+
 export function compositeScore(
   cvScore: number | null,
   locScore: number,
@@ -482,7 +490,10 @@ export function compositeScore(
 ): number {
   const cv = cvScore ?? 50
   const base = Math.round(cv * 0.75 + locScore * 0.15 + salScore * 0.10)
-  const penalty = mismatchPenalty(options?.jobTitle, options?.cvText, options?.jobDescription)
+  const { total: penalty, family } = computeMismatchPenalty(options?.jobTitle, options?.cvText, options?.jobDescription)
   const ceiling = cv + 10
-  return Math.max(0, Math.min(ceiling, base - penalty))
+  let composite = Math.max(0, Math.min(ceiling, base - penalty))
+  if (locScore < 50) composite = Math.min(composite, LOCATION_FLOOR_CAP)
+  if (family >= 20) composite = Math.min(composite, FAMILY_FLOOR_CAP)
+  return composite
 }
