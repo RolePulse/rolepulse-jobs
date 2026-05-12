@@ -13,16 +13,19 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      // Check if this is a new user (no job_seeker_profiles record or onboarding not completed)
+      // Check if this is a new user. Send to /onboarding only when there's no
+      // saved CV — a saved CV means the account is already set up, even if the
+      // onboarding_completed flag was never flipped (e.g. legacy accounts).
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: profile } = await supabase
           .from('job_seeker_profiles')
-          .select('onboarding_completed')
+          .select('onboarding_completed, cv_text')
           .eq('id', user.id)
           .maybeSingle()
 
-        if (!profile || !profile.onboarding_completed) {
+        const hasSavedCv = !!profile?.cv_text
+        if (!hasSavedCv && (!profile || !profile.onboarding_completed)) {
           return NextResponse.redirect(`${origin}/onboarding`)
         }
       }
