@@ -717,17 +717,14 @@ function JobsList() {
     fetchData()
   }, [selectedRole, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page])
 
-  // Batch scoring for All Jobs tab
+  // Batch scoring for All Jobs tab. Gate on prefs so composite recomputation
+  // (next effect) doesn't race against scoring callbacks landing first.
   useEffect(() => {
     if (loading || jobs.length === 0 || scoringRef.current) return
+    if (prefs === null || cvText === null) return
 
     async function startScoring() {
       try {
-        const res = await fetch('/api/cv/saved')
-        if (!res.ok) return
-        const { hasCv: cv, cvText: text } = await res.json()
-        if (!cv || !text) return
-
         scoringRef.current = true
 
         setMatchScores(prev => {
@@ -740,7 +737,7 @@ function JobsList() {
           return next
         })
 
-        await scoreBatch(jobs, text, (jobId, score) => {
+        await scoreBatch(jobs, cvText!, (jobId, score) => {
           setMatchScores(prev => ({ ...prev, [jobId]: score }))
         })
       } catch {
@@ -751,13 +748,38 @@ function JobsList() {
     }
 
     startScoring()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, jobs])
+  }, [loading, jobs, prefs, cvText])
+
+  // Recompute composite breakdowns whenever a new cvScore lands (or prefs change).
+  // Decorates rendering — sort order stays posted_at + diversify.
+  useEffect(() => {
+    if (!cvText || !prefs || jobs.length === 0) return
+    setMatchBreakdowns(prev => {
+      const next = { ...prev }
+      let changed = false
+      for (const job of jobs) {
+        const score = matchScores[job.id]
+        if (typeof score !== 'number') continue
+        if (next[job.id]) continue
+        const locScore_ = locationScore(job as JobForScoring, prefs, cvText)
+        const salScore_ = salaryScore(job as JobForScoring, prefs)
+        const total = compositeScore(score, locScore_, salScore_, {
+          jobTitle: job.title,
+          jobDescription: job.description,
+          cvText,
+        })
+        next[job.id] = { cvScore: score, locScore: locScore_, salScore: salScore_, total }
+        changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [jobs, matchScores, prefs, cvText])
 
   // Reset scoring state when jobs change
   useEffect(() => {
     scoringRef.current = false
     setMatchScores({})
+    setMatchBreakdowns({})
   }, [selectedRole, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page])
 
   // "Jobs For You" tab: fetch all active jobs, score, rank
@@ -1111,7 +1133,7 @@ function JobsList() {
                   key={job.id}
                   job={job}
                   companyLogo={job.company_logo ?? undefined}
-                  matchScore={matchScores[job.id] ?? undefined}
+                  matchScore={matchBreakdowns[job.id]?.total ?? matchScores[job.id] ?? undefined}
                 />
               ))
             )}

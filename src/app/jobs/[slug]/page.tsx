@@ -248,7 +248,7 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
     }
   }
 
-  const ringColor = result ? (result.score >= 80 ? '#16A34A' : result.score >= 60 ? '#D97706' : '#DC2626') : '#E5E7EB'
+  const ringColor = result ? (result.score >= 70 ? '#16A34A' : result.score >= 50 ? '#D97706' : '#DC2626') : '#E5E7EB'
 
   if (state === 'checking') return (
     <div className="border-t border-[#E5E7EB] pt-4 mt-4">
@@ -306,7 +306,7 @@ function CVScorer({ jobDescription, roleType, jobId }: { jobDescription: string;
           <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-800">{result.score}</span>
         </div>
         <div>
-          <p className="text-xs font-semibold text-slate-700">{result.score >= 80 ? 'Strong match' : result.score >= 60 ? 'Partial match' : 'Low match'}</p>
+          <p className="text-xs font-semibold text-slate-700">{result.score >= 70 ? 'Strong match' : result.score >= 50 ? 'Partial match' : 'Low match'}</p>
           <p className="text-[10px] text-slate-400">vs this {result.detectedRole || roleType} role</p>
         </div>
       </div>
