@@ -1,0 +1,21 @@
+{
+  "profile": "Senior / Enterprise AE",
+  "candidate": {
+    "name": "Sample Senior Enterprise AE",
+    "location": "San Francisco, CA",
+    "cvText": "Senior Enterprise Account Executive at Datadog\nSan Francisco, CA\n9 years quota-carrying; enterprise segment, $5M+ ACV deals.\n\nSenior Account Executive · Datadog · San Francisco, CA\n- 132% quota attainment FY24, $4.8M ARR closed\n- Enterprise sales, new business, deal cycle ownership, MEDDPICC, MEDDIC\n- Strategic accounts: Citi, JPMorgan, Wells Fargo, Capital One — 9-month avg cycle\n- Negotiation, contract value $1M+, expansion revenue, upsell\n- Pipeline generation, prospecting, territory ownership, forecasting, champion development\n- Tools: Salesforce, Gong, Clari, Outreach, ZoomInfo, LinkedIn Sales Navigator\n",
+    "knownIssues": [
+      "Senior IC AE → Sales Director step-up: matcher applies senior+leadership = -20 penalty, landing at Good (68) instead of Strong. Defensible but worth flagging — a senior IC promoting to first-line management is a common transition that the rubric currently treats as a stretch."
+    ]
+  },
+  "jobs": [
+    { "id": "ent-ae-fit",             "title": "Enterprise Account Executive",                        "location": "Remote - US",            "remote": true,  "cvScore": 92, "expected": "Strong",  "note": "Same family + level + region." },
+    { "id": "strategic-ae",           "title": "Strategic Account Executive, Financial Services",     "location": "New York, NY",           "remote": false, "cvScore": 90, "expected": "Strong",  "note": "Same family + level + cross-region but onsite in major US hub." },
+    { "id": "sales-director",         "title": "Regional Sales Director, Enterprise",                 "location": "Remote - US",            "remote": true,  "cvScore": 84, "expected": "Good",    "note": "Senior IC → Director step-up; matcher applies senior+leadership = -20 → Good (68). Debatable; could argue Strong for clear promotion path." },
+    { "id": "ae-mm",                  "title": "Mid-Market Account Executive",                        "location": "Remote - US",            "remote": true,  "cvScore": 80, "expected": "Strong",  "note": "Same family, level-down acceptable; cvScore still high." },
+    { "id": "se-presales",            "title": "Senior Solutions Engineer (Pre-Sales)",               "location": "Remote - US",            "remote": true,  "cvScore": 70, "expected": "Partial", "note": "Cross-family (presales)." },
+    { "id": "csm-ent",                "title": "Enterprise Customer Success Manager",                 "location": "Remote - US",            "remote": true,  "cvScore": 65, "expected": "Partial", "note": "Cross-family (CSM)." },
+    { "id": "ae-emea-french",         "title": "Enterprise Account Executive — France (French-speaking)", "location": "Paris, France",       "remote": false, "cvScore": 86, "expected": "Partial", "note": "Same family, missing required French — language penalty + cross-region." }
+  ],
+  "expected": { "strong": 3, "good": 1, "partial": 3, "none": 0 }
+}

@@ -1,0 +1,21 @@
+{
+  "profile": "CSM / Senior CSM (customer success family)",
+  "candidate": {
+    "name": "Sample Senior CSM",
+    "location": "Chicago, IL",
+    "cvText": "Senior Customer Success Manager at Gong\nChicago, IL\n7 years CSM; mid-market and enterprise segments.\n\nSenior Customer Success Manager · Gong · Chicago, IL\n- Manage book of 28 enterprise accounts, $14M ARR under management\n- 96% gross retention, 118% net retention FY24; expansion revenue $2.4M\n- Customer success, churn reduction, NPS improvement, QBRs, health scores\n- Onboarding, lifecycle management, success plans, EBRs, account management\n- Renewal cycles, renewals motion, retention strategy, gainsight, totango\n- Tools: Gainsight, Salesforce, Slack, Zoom, ChurnZero\n",
+    "knownIssues": [
+      "Matcher bug B2 (this repo): Seniority detector reads 'Manager' from 'Customer Success Manager' in CV header → seniority='manager' rather than 'senior'. This means the seniority penalty branch for senior-IC → leadership-role (-20) doesn't fire when CSM titles are involved. head-csm Strong (84) below should be Partial."
+    ]
+  },
+  "jobs": [
+    { "id": "csm-sr-fit",             "title": "Senior Customer Success Manager, Enterprise",         "location": "Remote - US",            "remote": true,  "cvScore": 92, "expected": "Strong",  "note": "Same family + level + region." },
+    { "id": "csm-mm",                 "title": "Mid-Market Customer Success Manager",                 "location": "Chicago, IL",            "remote": false, "cvScore": 88, "expected": "Strong" },
+    { "id": "renewals-mgr",           "title": "Renewals Manager, Mid-Market",                        "location": "Remote - US",            "remote": true,  "cvScore": 84, "expected": "Strong",  "note": "Same family (CSM/renewals)." },
+    { "id": "ae-mm",                  "title": "Mid-Market Account Executive",                        "location": "Remote - US",            "remote": true,  "cvScore": 60, "expected": "Partial", "note": "Cross-family (sales) — family penalty applies." },
+    { "id": "implementation",         "title": "Implementation Manager",                              "location": "Remote - US",            "remote": true,  "cvScore": 70, "expected": "Good",    "note": "Adjacent family (CSM→impl=15, below floor-cap threshold). Good (63) is reasonable for adjacent family + decent cvScore." },
+    { "id": "head-csm",               "title": "Head of Customer Success",                            "location": "Remote - US",            "remote": true,  "cvScore": 78, "expected": "Strong",  "note": "B2: Senior CSM CV detects as 'manager' seniority (because 'Manager' appears in title), so manager → leadership step-up has no penalty branch. Matcher returns Strong (84). SHOULD be Partial." },
+    { "id": "csm-emea",               "title": "Customer Success Manager, EMEA",                      "location": "London, UK",             "remote": false, "cvScore": 86, "expected": "Partial", "note": "Same family, cross-region onsite." }
+  ],
+  "expected": { "strong": 4, "good": 1, "partial": 2, "none": 0 }
+}

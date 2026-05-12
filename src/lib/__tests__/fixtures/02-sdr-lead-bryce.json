@@ -1,0 +1,23 @@
+{
+  "profile": "SDR Lead — Andre Bryce-shaped",
+  "candidate": {
+    "name": "Andre Bryce",
+    "location": "Austin, TX",
+    "cvText": "Andre Bryce\nAustin, TX\nSenior SDR / SDR Lead at HubSpot. 4 years outbound + team lead.\n\nSDR Lead · HubSpot · Austin, TX\n- Lead a pod of 8 SDRs covering Mid-Market North America; quota 40 SQLs/month/rep\n- Built outbound sequences in Salesloft, refined cold-call scripts, ran call-coaching\n- 142% team quota attainment FY24; promoted from individual SDR after 18 months\n- Pipeline generation, prospecting, cadence design, outreach, cold calling\n- Tools: Salesloft, ZoomInfo, Apollo, Gong, Salesforce, HubSpot\n\nSDR · HubSpot · Austin, TX\n- 158% personal quota attainment as IC SDR\n- Demos booked, meetings booked, lead qualification, sequences, prospecting\n- BDR / SDR funnel ownership, MQL → SQL conversion\n",
+    "knownIssues": [
+      "cv-pulse rubric mismatch (upstream): rolepulse-jobs sends role_type='sales' to cv-pulse; cv-pulse roleHint isn't in ALL_ROLES so defaults to 'AE'. CV is SDR-shaped: detectRole should return 'SDR' from CV keywords (outbound, prospecting, sequences, cadence, sdr, bdr) — but if hits < MIN_HITS_TO_DETECT (3), it falls back to AE rubric, inflating AE-aligned JD scores.",
+      "Matcher bug B3 (this repo): SDR Lead candidates applying to 'Senior SDR Lead' titles get penalised because juniorRole regex matches 'sdr' in the title. Combined with leadership seniority on the CV, this stacks a -35 penalty for what should be a same-role-same-level Strong fit.",
+      "Matcher gap B1 (this repo): Within-family role-type mismatch (SDR Lead → IC AE / Inside Sales Director) gets no penalty because both sides classify as 'sales' family. ae-senior + inside-sales-director Strong-band scores below are matcher artefacts, not endorsements."
+    ]
+  },
+  "jobs": [
+    { "id": "sdr-lead-similar",       "title": "Senior SDR Lead, Mid-Market",                         "location": "Remote - US",            "remote": true,  "cvScore": 88, "expected": "Good",    "note": "B3: SDR Lead → Senior SDR Lead penalised by juniorRole regex matching 'sdr'. SHOULD be Strong; matcher returns Good (66) due to bug." },
+    { "id": "bdr-individual",         "title": "Business Development Representative",                 "location": "Austin, TX",             "remote": false, "cvScore": 82, "expected": "Good",    "note": "Lead-of-juniors → IC BDR is a step back; Good is reasonable." },
+    { "id": "ae-senior",              "title": "Senior Account Executive II",                         "location": "Remote - US",            "remote": true,  "cvScore": 78, "expected": "Strong",  "note": "B1: SDR Lead → senior IC AE within-family role-type mismatch undercounted. SHOULD be Partial/Good; matcher returns Strong (84)." },
+    { "id": "inside-sales-director",  "title": "Inside Sales Director",                               "location": "Remote - US",            "remote": true,  "cvScore": 84, "expected": "Strong",  "note": "B1+B2: SDR Lead (manager seniority) → Director step-up not penalised (manager → leadership has no penalty branch). SHOULD be Partial; matcher returns Strong (88)." },
+    { "id": "se-presales",            "title": "Senior Solutions Engineer (Pre-Sales)",               "location": "Remote - US",            "remote": true,  "cvScore": 64, "expected": "Partial", "note": "Cross-family (presales) — family penalty caps at 55. Working as intended." },
+    { "id": "csm-mid",                "title": "Mid-Market Customer Success Manager",                 "location": "Remote - US",            "remote": true,  "cvScore": 60, "expected": "Partial", "note": "Cross-family (CSM). Working as intended." },
+    { "id": "ae-emea",                "title": "Account Executive — EMEA",                            "location": "London, UK",             "remote": false, "cvScore": 72, "expected": "Partial", "note": "Same family but cross-region (UK) onsite — location floor cap. Working as intended." }
+  ],
+  "expected": { "strong": 2, "good": 2, "partial": 3, "none": 0 }
+}

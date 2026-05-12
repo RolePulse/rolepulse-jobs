@@ -1,0 +1,22 @@
+{
+  "profile": "SDR / BDR (junior, early career)",
+  "candidate": {
+    "name": "Sample Junior SDR",
+    "location": "Boston, MA",
+    "cvText": "Junior SDR at Datadog\nBoston, MA\n9 months as SDR; first GTM role after college.\n\nSDR · Datadog · Boston, MA\n- 110% quota in Q3, ramping team-wide\n- Outbound prospecting, cold calling, sequences, cadence design in Salesloft\n- Pipeline generation: 25+ SQLs/month\n- Tools: Salesloft, Outreach, Apollo, ZoomInfo, Salesforce, HubSpot\n- Sales development representative funnel — MQL → SQL → demo booked\n",
+    "knownIssues": [
+      "cv-pulse rubric mismatch (upstream): role_type='sales' → AE-rubric default. CV has strong SDR signal — detectRole should pick SDR cleanly when run.",
+      "Matcher gap B1 (this repo): Junior SDR → MM/Enterprise AE within-family role-type mismatch undercounted. Both classify as 'sales' family with no penalty for the SDR↔AE distinction. ae-mm + ae-enterprise Good-band scores below are matcher artefacts."
+    ]
+  },
+  "jobs": [
+    { "id": "sdr-fit",                "title": "Sales Development Representative",                    "location": "Boston, MA",             "remote": false, "cvScore": 88, "expected": "Strong",  "note": "Perfect fit." },
+    { "id": "bdr-remote-us",          "title": "Business Development Representative",                 "location": "Remote - US",            "remote": true,  "cvScore": 86, "expected": "Strong" },
+    { "id": "ae-mm",                  "title": "Mid-Market Account Executive",                        "location": "Remote - US",            "remote": true,  "cvScore": 70, "expected": "Good",    "note": "B1: junior SDR → MM AE within-family gap; matcher returns Good (78). SHOULD be Partial." },
+    { "id": "ae-enterprise",          "title": "Enterprise Account Executive",                        "location": "New York, NY",           "remote": false, "cvScore": 68, "expected": "Good",    "note": "B1: junior SDR → Enterprise AE within-family gap; matcher returns Good (76). SHOULD be Partial." },
+    { "id": "csm-jr",                 "title": "Junior Customer Success Manager",                     "location": "Remote - US",            "remote": true,  "cvScore": 55, "expected": "None",    "note": "Cross-family + junior in title. None defensible — matcher correctly penalises stretch." },
+    { "id": "marketing-coord",        "title": "Marketing Coordinator",                               "location": "Boston, MA",             "remote": false, "cvScore": 45, "expected": "None",    "note": "Cross-family marketing + low cvScore. None defensible." },
+    { "id": "sdr-lead",               "title": "SDR Team Lead",                                       "location": "Remote - US",            "remote": true,  "cvScore": 78, "expected": "Good",    "note": "Same family, level-up. Matcher correctly gives Good (74) — title 'Lead' triggers managerRole +10 penalty." }
+  ],
+  "expected": { "strong": 2, "good": 3, "partial": 0, "none": 2 }
+}

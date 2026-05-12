@@ -1,0 +1,23 @@
+{
+  "profile": "Marketing (cross-family validation)",
+  "candidate": {
+    "name": "Sample Marketing Manager",
+    "location": "New York, NY",
+    "cvText": "Senior Demand Generation Manager at Asana\nNew York, NY\n6 years demand gen; full-funnel growth marketing.\n\nSenior Demand Generation Manager · Asana · New York, NY\n- Own $4M annual demand-gen budget; deliver 2,400 MQLs/quarter\n- Demand generation, demand gen, content marketing, growth marketing, brand marketing\n- Campaigns: paid social, paid search, ABM, account based marketing\n- SEO, SEM, marketing automation, marketing ops, lead generation\n- MQL → SQL conversion, attribution modeling, full-funnel reporting\n- Field marketing event support, partner marketing co-marketing\n- Tools: Marketo, HubSpot, Salesforce, 6sense, Bizible, Demandbase, Google Ads, LinkedIn Ads\n",
+    "knownIssues": [
+      "cv-pulse rubric mismatch (upstream): role_type='marketing' (lowercase) doesn't match ALL_ROLES ['Marketing'] (case-sensitive) → defaults to AE rubric. CV has clear marketing signal — detectRole should return 'Marketing' from CV.",
+      "Matcher edge case (this repo): 'Marketing Operations Manager' classifies as 'marketing' family rather than 'revops' (title token order — 'marketing' appears first). For a marketing CV this masks the cross-family penalty, returning Good (79). Borderline; depends on whether MOps is taxonomically marketing or revops.",
+      "Matcher behaviour confirmed: cross-family Marketing → AE/CSM with low cvScore (50/48) + family penalty (40/35) lands at None (23/26). Defensible — appropriate penalty for low signal + cross-family."
+    ]
+  },
+  "jobs": [
+    { "id": "demand-gen-fit",         "title": "Senior Demand Generation Manager",                    "location": "Remote - US",            "remote": true,  "cvScore": 92, "expected": "Strong",  "note": "Same family + level + region." },
+    { "id": "growth-mkt",             "title": "Growth Marketing Manager",                            "location": "New York, NY",           "remote": false, "cvScore": 88, "expected": "Strong" },
+    { "id": "head-marketing",         "title": "Head of Marketing, North America",                    "location": "Remote - US",            "remote": true,  "cvScore": 80, "expected": "Strong",  "note": "Same family, one level up." },
+    { "id": "ae-mm",                  "title": "Mid-Market Account Executive",                        "location": "Remote - US",            "remote": true,  "cvScore": 50, "expected": "None",    "note": "Cross-family (sales) + low cvScore. Matcher returns None (23). Defensible." },
+    { "id": "csm",                    "title": "Customer Success Manager",                            "location": "Remote - US",            "remote": true,  "cvScore": 48, "expected": "None",    "note": "Cross-family (CSM) + low cvScore. Matcher returns None (26). Defensible." },
+    { "id": "revops",                 "title": "Marketing Operations Manager",                        "location": "Remote - US",            "remote": true,  "cvScore": 72, "expected": "Good",    "note": "Edge case: classifier flags as marketing family → no cross-family penalty → Good (79). Could argue Partial if MOps belongs to revops family." },
+    { "id": "demand-gen-emea",        "title": "Demand Generation Manager — EMEA",                    "location": "London, UK",             "remote": false, "cvScore": 86, "expected": "Partial", "note": "Same family, cross-region onsite." }
+  ],
+  "expected": { "strong": 3, "good": 1, "partial": 1, "none": 2 }
+}
