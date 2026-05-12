@@ -493,13 +493,14 @@ export default function OnboardingPage() {
         }
       } catch { /* non-fatal */ }
 
-      // If onboarding already completed, skip to /jobs
+      // Skip onboarding if it's already complete OR if a CV is already saved
+      // (legacy accounts with a CV but no onboarding_completed flag).
       const { data: profile } = await supabase
         .from('job_seeker_profiles')
-        .select('onboarding_completed')
+        .select('onboarding_completed, cv_text')
         .eq('id', user.id)
         .maybeSingle()
-      if (profile?.onboarding_completed) {
+      if (profile?.onboarding_completed || profile?.cv_text) {
         router.push('/jobs')
       }
     }
