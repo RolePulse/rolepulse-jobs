@@ -1,0 +1,19 @@
+{
+  "profile": "Mid-Market AE (matcher happy path)",
+  "candidate": {
+    "name": "Sample Mid-Market AE",
+    "location": "Denver, CO",
+    "cvText": "Mid-Market Account Executive at Snowflake\nDenver, CO\n5 years quota-carrying AE; mid-market segment.\n\nAccount Executive · Snowflake · Denver, CO\n- 118% quota attainment FY24, $1.2M ARR closed\n- New business focus, deal cycle ownership, MEDDIC, MEDDPICC, BANT\n- Discovery calls, negotiation, contract close, expansion\n- Closed-won 38 net-new logos, 6-month average sales cycle\n- Pipeline generation, prospecting, territory ownership, forecasting\n- Tools: Salesforce, Outreach, Gong, Clari, Apollo\n",
+    "knownIssues": []
+  },
+  "jobs": [
+    { "id": "ae-mm-fit",              "title": "Mid-Market Account Executive",                        "location": "Remote - US",            "remote": true,  "cvScore": 92, "expected": "Strong", "note": "Same family + level + region." },
+    { "id": "ae-enterprise",          "title": "Enterprise Account Executive",                        "location": "Remote - US",            "remote": true,  "cvScore": 88, "expected": "Strong", "note": "Same family, adjacent segment." },
+    { "id": "ae-smb",                 "title": "SMB Account Executive",                               "location": "Denver, CO",             "remote": false, "cvScore": 84, "expected": "Strong", "note": "Same family, level-down acceptable." },
+    { "id": "se-presales",            "title": "Sales Engineer",                                      "location": "Remote - US",            "remote": true,  "cvScore": 68, "expected": "Partial", "note": "Cross-family (presales) — family penalty caps composite at 55." },
+    { "id": "csm",                    "title": "Customer Success Manager, Mid-Market",                "location": "Remote - US",            "remote": true,  "cvScore": 62, "expected": "Partial", "note": "Cross-family (CSM)." },
+    { "id": "ae-emea",                "title": "Enterprise Account Executive — EMEA",                 "location": "London, UK",             "remote": false, "cvScore": 86, "expected": "Partial", "note": "Same family, cross-region onsite — location floor cap." },
+    { "id": "ae-emea-german",         "title": "Account Executive — DACH (German-speaking)",          "location": "Berlin, Germany",        "remote": false, "cvScore": 84, "expected": "Partial", "note": "Same family but missing required German language — language penalty." }
+  ],
+  "expected": { "strong": 3, "good": 0, "partial": 4, "none": 0 }
+}

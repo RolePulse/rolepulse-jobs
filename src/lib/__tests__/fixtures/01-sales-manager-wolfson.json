@@ -1,0 +1,22 @@
+{
+  "profile": "Sales Manager (frontline) — Alex Wolfson",
+  "candidate": {
+    "name": "Alex Wolfson",
+    "location": "Pompton Lakes, NJ",
+    "cvText": "Alex Wolfson\nPompton Lakes, NJ\nHands-on Enterprise Sales Leader. Sales Manager, Large Enterprise at Staffbase, New York, NY.\nPreviously Large Enterprise Account Executive.\n\nSales Manager, Large Enterprise · Staffbase · New York, NY\n- 2024 LENT AE Quota attainment: 111% (target $1.45M)\n- Notable LENT AE logos: GEICO, McKesson, Harman International, Qualcomm\n- Promoted to Sales Manager leading 7 AEs - Annual team quota of $7.38M\n- Owned and refined the Large Enterprise GTM motion, MEDDPICC framework,\n  outbound playbooks, forecasting cadence, pipeline generation, cold calling\n- New business, closed-won, deal cycle ownership, MEDDIC, BANT, prospecting\n\nAccount Executive · prior role · New York, NY\n- Pipeline generation, quota attainment, territory ownership\n- Cold calling, prospecting, MEDDPICC, MEDDIC, new business, closed won",
+    "knownIssues": []
+  },
+  "jobs": [
+    { "id": "renewals-pm",        "title": "Renewals Program Manager (Enablement & Execution)",          "location": "Remote - GA",                                          "remote": true,  "cvScore": 97, "expected": "Partial", "note": "Cross-family CSM/renewals — composite must drop below Strong via family penalty." },
+    { "id": "sa-presales-1",      "title": "Solutions Architect (Pre-sales)",                             "location": "Amsterdam, Netherlands",                               "remote": false, "cvScore": 82, "expected": "Partial", "note": "Cross-family + cross-region (EU)." },
+    { "id": "sr-se-1",            "title": "Senior Solutions Engineer (Pre-Sales)",                       "location": "Amsterdam, Netherlands",                               "remote": false, "cvScore": 91, "expected": "Partial", "note": "Cross-family + cross-region." },
+    { "id": "mexico-sd",          "title": "Regional Sales Director, Select Enterprise - Mexico",          "location": "Remote - Mexico",                                      "remote": true,  "cvScore": 94, "expected": "Partial", "note": "Same family, cross-region (LATAM) — location floor cap." },
+    { "id": "sa-presales-2",      "title": "Solutions Architect (Pre-sales)",                             "location": "Amsterdam, Netherlands",                               "remote": false, "cvScore": 79, "expected": "Partial" },
+    { "id": "sales-engineer-4",   "title": "Sales Engineer 4 - Associate Specialist",                     "location": "Remote - US",                                          "remote": true,  "cvScore": 94, "expected": "Partial", "note": "Cross-family (presales) — same region, family penalty drops to Partial." },
+    { "id": "public-sector-rsm",  "title": "Public Sector Mid-Market Regional Sales Manager.",            "location": "Remote - NYC; Remote - SF Bay Area; Remote - TX",      "remote": true,  "cvScore": 94, "expected": "Strong", "note": "Same family, same region — only true Strong fit." },
+    { "id": "ai-sa",              "title": "AI Solutions Architect (Pre-sales) - Strategic Accounts",     "location": "Amsterdam, Netherlands",                               "remote": false, "cvScore": 82, "expected": "Partial" },
+    { "id": "sr-se-healthcare",   "title": "Senior Solutions Engineer (Pre-Sales) - Healthcare & Life Sciences", "location": "Amsterdam, Netherlands",                        "remote": false, "cvScore": 91, "expected": "Partial" },
+    { "id": "renewals-ae-mexico", "title": "Renewals Account Executive - Enterprise - Mexico",            "location": "Remote - Mexico",                                      "remote": true,  "cvScore": 88, "expected": "Partial", "note": "Cross-family + cross-region." }
+  ],
+  "expected": { "strong": 1, "good": 0, "partial": 9, "none": 0 }
+}

@@ -1,0 +1,22 @@
+{
+  "profile": "RevOps Manager / Director (revops family)",
+  "candidate": {
+    "name": "Sample RevOps Manager",
+    "location": "Austin, TX",
+    "cvText": "Director of Revenue Operations at Notion\nAustin, TX\n7 years operations; sales ops, marketing ops, full revenue stack.\n\nDirector, Revenue Operations · Notion · Austin, TX\n- Lead 4-person RevOps team; own GTM tooling stack across sales, marketing, success\n- Revenue operations, sales operations, GTM operations, RevOps strategy\n- Salesforce admin, CRM administration, salesforce administrator, deal desk\n- Pipeline hygiene, territory planning, quota planning, forecasting models, compensation planning\n- Sales analytics, attribution modeling, lead routing logic, MQL/SQL definitions\n- Tools: Salesforce, HubSpot, Outreach, Gong, Looker, Tableau, dbt, Snowflake, LeanData\n- Process optimization, forecast accuracy, board reporting cadence\n",
+    "knownIssues": [
+      "cv-pulse rubric mismatch (upstream): role_type='revops' (lowercase) doesn't match ALL_ROLES ['RevOps'] (case-sensitive) → defaults to AE rubric. CV has strong RevOps signal — detectRole should return 'RevOps' from CV with hits >= 3 once the case-sensitivity is fixed.",
+      "Matcher behaviour confirmed: cross-family RevOps → AE/CSM with mid cvScore (60/55) + family penalty (35/30) lands at None (35/36). Family floor cap of 55 doesn't help below 55. Defensible — the matcher is correctly penalising cross-family with a low CV signal."
+    ]
+  },
+  "jobs": [
+    { "id": "revops-dir-fit",         "title": "Director of Revenue Operations",                      "location": "Remote - US",            "remote": true,  "cvScore": 90, "expected": "Strong",  "note": "Same family + level + region." },
+    { "id": "sales-ops-mgr",          "title": "Sales Operations Manager",                            "location": "Austin, TX",             "remote": false, "cvScore": 86, "expected": "Strong" },
+    { "id": "revops-mgr",             "title": "Senior RevOps Manager",                               "location": "Remote - US",            "remote": true,  "cvScore": 88, "expected": "Strong" },
+    { "id": "ae-mm",                  "title": "Mid-Market Account Executive",                        "location": "Remote - US",            "remote": true,  "cvScore": 60, "expected": "None",    "note": "Cross-family (sales) with mid cvScore. Matcher correctly returns None (35) — family penalty 35 below floor-cap." },
+    { "id": "marketing-ops",          "title": "Marketing Operations Manager",                        "location": "Remote - US",            "remote": true,  "cvScore": 72, "expected": "Partial", "note": "Adjacent family (revops→marketing=25). Family floor cap applies → Partial (54)." },
+    { "id": "csm",                    "title": "Customer Success Manager, Mid-Market",                "location": "Remote - US",            "remote": true,  "cvScore": 55, "expected": "None",    "note": "Cross-family with mid cvScore. Matcher returns None (36)." },
+    { "id": "revops-emea",            "title": "Revenue Operations Manager — EMEA",                   "location": "London, UK",             "remote": false, "cvScore": 84, "expected": "Partial", "note": "Same family, cross-region onsite — location floor cap." }
+  ],
+  "expected": { "strong": 3, "good": 0, "partial": 2, "none": 2 }
+}

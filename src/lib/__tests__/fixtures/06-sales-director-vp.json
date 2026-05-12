@@ -1,0 +1,22 @@
+{
+  "profile": "Sales Director / VP Sales (senior leadership in sales)",
+  "candidate": {
+    "name": "Sample VP Sales",
+    "location": "London, UK",
+    "cvText": "VP of Sales, EMEA at Confluent\nLondon, UK\n14 years sales; 6 years leadership.\n\nVP Sales, EMEA · Confluent · London, UK\n- Built and scaled EMEA sales org from 4 → 28 quota-carrying reps; managed a team of 32\n- £45M ARR, 124% to plan FY24; reported into CRO, board updates quarterly\n- Hiring, OKRs, pipeline hygiene, forecasting cadence, territory planning\n- Director of Sales prior — promoted after 2 years scaling Mid-Market segment\n- VP of, head of, leadership; strategic deal coaching, MEDDPICC enforcement\n- Built revenue org playbooks, GTM motion design, P&L ownership for the region\n",
+    "knownIssues": [
+      "Matcher gap B5 (this repo): Leadership CV → senior IC role: only family penalty (leadership→sales = -10) applies, no role-step-down penalty. ae-ic Good (69) below is a matcher artefact — VP stepping down to Senior IC AE should be Partial.",
+      "Matcher bug B4 (this repo): Title family classifier overweights leadership terms. 'VP of Marketing, EMEA' classifies as 'leadership' family rather than 'marketing', missing the cross-family penalty entirely. vp-marketing Good (70) below is wrong — should be Partial."
+    ]
+  },
+  "jobs": [
+    { "id": "vp-sales-emea-fit",      "title": "VP of Sales, EMEA",                                   "location": "London, UK",             "remote": false, "cvScore": 92, "expected": "Strong",  "note": "Same family + level + city." },
+    { "id": "sales-director-uk",      "title": "Sales Director, UK & Ireland",                        "location": "London, UK",             "remote": false, "cvScore": 88, "expected": "Strong",  "note": "Same family, one level down — appropriate." },
+    { "id": "cro-emea",               "title": "Chief Revenue Officer, EMEA",                         "location": "London, UK",             "remote": false, "cvScore": 84, "expected": "Strong",  "note": "Leadership family adjacent; one level up." },
+    { "id": "ae-ic",                  "title": "Senior Account Executive",                            "location": "London, UK",             "remote": false, "cvScore": 72, "expected": "Good",    "note": "B5: VP → senior IC AE step-down only -10 penalty, lands at Good (69). SHOULD be Partial." },
+    { "id": "head-csm",               "title": "Head of Customer Success, EMEA",                      "location": "London, UK",             "remote": false, "cvScore": 70, "expected": "Partial", "note": "Cross-family (CSM)." },
+    { "id": "vp-marketing",           "title": "VP of Marketing, EMEA",                               "location": "London, UK",             "remote": false, "cvScore": 60, "expected": "Good",    "note": "B4: Title classifier flags 'VP of...' as leadership family, masking the marketing cross-family penalty. Matcher returns Good (70). SHOULD be Partial." },
+    { "id": "sales-director-us",      "title": "Sales Director, US East",                             "location": "New York, NY",           "remote": false, "cvScore": 86, "expected": "Partial", "note": "Same family + level, cross-region (US) onsite — location floor cap." }
+  ],
+  "expected": { "strong": 3, "good": 2, "partial": 2, "none": 0 }
+}

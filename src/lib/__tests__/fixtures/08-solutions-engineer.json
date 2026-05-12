@@ -1,0 +1,21 @@
+{
+  "profile": "Solutions Engineer / Sales Engineer (presales family)",
+  "candidate": {
+    "name": "Sample Solutions Engineer",
+    "location": "Seattle, WA",
+    "cvText": "Senior Solutions Engineer at MongoDB\nSeattle, WA\n8 years presales; deep technical discovery, POCs, value engineering.\n\nSenior Solutions Engineer · MongoDB · Seattle, WA\n- Pre-sales support for $40M ARR territory; supported 12 AEs across mid-market and enterprise\n- Proof of concept design, technical discovery, sandbox builds, RFP responses\n- Solutions architect for strategic accounts: Boeing, Costco, Microsoft\n- Value engineering, business case development, ROI modeling, technical demos\n- Solutions consultant, technical champion development, MEDDIC qualification\n- Tools: AWS, Azure, GCP, Kubernetes, Terraform, REST APIs, Postman\n- Pre-sales / presales / solution engineering; technical evaluation, integration design\n",
+    "knownIssues": [
+      "rolepulse role_type='presales' → cv-pulse roleHint not in ALL_ROLES → defaults to AE rubric. CV has strong presales/SE keywords (solutions engineer, presales, pre-sales, proof of concept, solutions architect, technical discovery, sandbox, value engineer, technical evaluation, solutions consultant) so detectRole should return 'SE' from CV cleanly."
+    ]
+  },
+  "jobs": [
+    { "id": "se-fit",                 "title": "Senior Solutions Engineer (Pre-Sales)",               "location": "Remote - US",            "remote": true,  "cvScore": 92, "expected": "Strong", "note": "Same family + level + region." },
+    { "id": "sa-presales",            "title": "Solutions Architect (Pre-sales) - Strategic Accounts","location": "Seattle, WA",            "remote": false, "cvScore": 88, "expected": "Strong" },
+    { "id": "sales-engineer",         "title": "Sales Engineer 4 - Associate Specialist",             "location": "Remote - US",            "remote": true,  "cvScore": 86, "expected": "Strong" },
+    { "id": "ae-mm",                  "title": "Mid-Market Account Executive",                        "location": "Remote - US",            "remote": true,  "cvScore": 65, "expected": "Partial", "note": "Cross-family (sales) — family penalty." },
+    { "id": "csm",                    "title": "Customer Success Manager",                            "location": "Remote - US",            "remote": true,  "cvScore": 60, "expected": "Partial", "note": "Cross-family (CSM)." },
+    { "id": "implementation",         "title": "Implementation Manager",                              "location": "Remote - US",            "remote": true,  "cvScore": 72, "expected": "Partial", "note": "Adjacent family (presales→impl=20). Family penalty caps at 55." },
+    { "id": "se-emea",                "title": "Senior Solutions Engineer (Pre-Sales) - EMEA",        "location": "Amsterdam, Netherlands", "remote": false, "cvScore": 84, "expected": "Partial", "note": "Same family, cross-region onsite — location floor cap." }
+  ],
+  "expected": { "strong": 3, "good": 0, "partial": 4, "none": 0 }
+}
