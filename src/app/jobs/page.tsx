@@ -9,6 +9,7 @@ import { JobRowSkeleton } from '@/components/JobRowSkeleton'
 import { compositeScore, locationScore, salaryScore, type JobPreferences, type JobForScoring } from '@/lib/matchScoring'
 import { formatSalary } from '@/lib/salary'
 import { track } from '@/lib/analytics'
+import { mapPreferredCityToLocationChip } from '@/lib/regionDefault'
 
 function resultCountBucket(n: number): '0' | '1-10' | '11-50' | '51+' {
   if (n === 0) return '0'
@@ -58,8 +59,12 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
   )
 }
 
+// `value: 'all'` is an explicit sentinel meaning "the user picked All locations".
+// Lets us tell apart "first arrival, apply the user's region default" (no
+// ?location= in the URL) from "user just clicked the All-locations chip"
+// (?location=all in the URL). Treated as no-filter at query time below.
 const LOCATION_FILTERS = [
-  { label: 'All locations', value: '' },
+  { label: 'All locations', value: 'all' },
   { label: 'Remote only', value: 'remote' },
   { label: 'London', value: 'london' },
   { label: 'New York', value: 'new-york' },
@@ -555,6 +560,23 @@ function JobsList() {
     loadCvAndPrefs()
   }, [])
 
+  // ROL-149: For signed-in users with a saved region, default the location
+  // chip to that region on first arrival to /jobs (no ?location= in URL).
+  // The 'all' sentinel emitted by the All-locations chip keeps explicit
+  // user choices sticky across refreshes — see LOCATION_FILTERS above.
+  const defaultLocationAppliedRef = useRef(false)
+  useEffect(() => {
+    if (defaultLocationAppliedRef.current) return
+    if (!prefs) return
+    defaultLocationAppliedRef.current = true
+    if (searchParams.get('location') !== null) return
+    const chip = mapPreferredCityToLocationChip(prefs)
+    if (!chip) return
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('location', chip)
+    router.replace(`/jobs?${params.toString()}`)
+  }, [prefs, router, searchParams])
+
   function handleSearchChange(value: string) {
     setSearchInput(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -625,7 +647,7 @@ function JobsList() {
         }
       }
 
-      if (selectedLocation) {
+      if (selectedLocation && selectedLocation !== 'all') {
         if (selectedLocation === 'remote') {
           query = query.eq('remote', true)
         } else if (selectedLocation === 'new-york') {
@@ -1049,7 +1071,15 @@ function JobsList() {
               <div className="relative after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none md:after:hidden">
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:flex-wrap">
                   {LOCATION_FILTERS.map((loc) => (
-                    <LocationPill key={loc.value} loc={loc} selected={selectedLocation === loc.value} />
+                    <LocationPill
+                      key={loc.value}
+                      loc={loc}
+                      selected={
+                        loc.value === 'all'
+                          ? selectedLocation === '' || selectedLocation === 'all'
+                          : selectedLocation === loc.value
+                      }
+                    />
                   ))}
                 </div>
               </div>
