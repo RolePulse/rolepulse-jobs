@@ -10,6 +10,7 @@ import { compositeScore, locationScore, salaryScore, type JobPreferences, type J
 import { formatSalary } from '@/lib/salary'
 import { track } from '@/lib/analytics'
 import { mapPreferredCityToLocationChip } from '@/lib/regionDefault'
+import { diversify } from '@/lib/diversify'
 
 function resultCountBucket(n: number): '0' | '1-10' | '11-50' | '51+' {
   if (n === 0) return '0'
@@ -263,28 +264,6 @@ async function scoreBatch(
       })
     )
   }
-}
-
-function diversify(jobs: Job[]): Job[] {
-  const companyCount: Record<string, number> = {}
-  const result: Job[] = []
-  const deferred: Job[] = []
-
-  let lastCompany = ''
-  let consecutive = 0
-
-  for (const job of jobs) {
-    const co = job.company_name
-    companyCount[co] = (companyCount[co] || 0)
-    if (companyCount[co] >= 5) { deferred.push(job); continue }
-    if (co === lastCompany && consecutive >= 2) { deferred.push(job); continue }
-    companyCount[co]++
-    consecutive = co === lastCompany ? consecutive + 1 : 1
-    lastCompany = co
-    result.push(job)
-  }
-
-  return [...result, ...deferred]
 }
 
 interface MatchBreakdown {
@@ -899,9 +878,10 @@ function JobsList() {
             scored.sort((a, b) => b.total - a.total)
             setMatchBreakdowns(prev => ({ ...prev, ...breakdowns }))
             // Only include jobs with at least some score signal
-            return scored
+            const ranked = scored
               .filter(x => cvScores[x.job.id] !== undefined)
               .map(x => x.job)
+            return diversify(ranked)
           })
 
           void currentJobs
@@ -928,7 +908,10 @@ function JobsList() {
 
         scored.sort((a, b) => b.total - a.total)
         setMatchBreakdowns(finalBreakdowns)
-        setForYouJobs(scored.filter(x => cvScores[x.job.id] !== undefined).map(x => x.job))
+        const finalRanked = scored
+          .filter(x => cvScores[x.job.id] !== undefined)
+          .map(x => x.job)
+        setForYouJobs(diversify(finalRanked))
         setForYouScored(true)
       } catch {
         setForYouLoading(false)
