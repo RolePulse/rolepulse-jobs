@@ -353,6 +353,8 @@ function JobsForYouContent({
   prefs,
   loading,
   hasCv,
+  savedJobIds,
+  onToggleSave,
 }: {
   jobs: Job[]
   matchScores: Record<string, MatchScoreState>
@@ -360,6 +362,8 @@ function JobsForYouContent({
   prefs: JobPreferences | null
   loading: boolean
   hasCv: boolean
+  savedJobIds?: Set<string>
+  onToggleSave?: (jobId: string, saving: boolean) => void
 }) {
   if (!hasCv) {
     return (
@@ -401,6 +405,8 @@ function JobsForYouContent({
         job={job}
         companyLogo={job.company_logo ?? undefined}
         matchScore={matchBreakdowns[job.id]?.total ?? matchScores[job.id] ?? undefined}
+        isSaved={savedJobIds?.has(job.id)}
+        onToggleSave={onToggleSave}
       />
       {matchBreakdowns[job.id] && matchScores[job.id] !== 'loading' && (
         <div className="px-0 pb-2 -mt-2 flex justify-end">
@@ -552,9 +558,9 @@ function JobsList() {
   // gates the tab content render so we don't flash the wrong tab before the
   // CV check returns.
   const urlTab = searchParams.get('tab')
-  const urlTabOverride: 'all' | 'for-you' | null =
-    urlTab === 'all' || urlTab === 'for-you' ? urlTab : null
-  const [activeTab, setActiveTab] = useState<'all' | 'for-you'>(urlTabOverride ?? 'all')
+  const urlTabOverride: 'all' | 'for-you' | 'saved' | null =
+    urlTab === 'all' || urlTab === 'for-you' || urlTab === 'saved' ? urlTab : null
+  const [activeTab, setActiveTab] = useState<'all' | 'for-you' | 'saved'>(urlTabOverride ?? 'all')
   const [tabResolved, setTabResolved] = useState<boolean>(urlTabOverride !== null)
   const [isSignedIn, setIsSignedIn] = useState<boolean>(false)
   const [cvCheckDone, setCvCheckDone] = useState<boolean>(false)
@@ -567,6 +573,10 @@ function JobsList() {
   const [matchBreakdowns, setMatchBreakdowns] = useState<Record<string, MatchBreakdown>>({})
   const forYouScoringRef = useRef(false)
   const tabResolutionTrackedRef = useRef(false)
+  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set())
+  const [savedJobs, setSavedJobs] = useState<Job[]>([])
+  const [savedLoading, setSavedLoading] = useState(false)
+  const savedJobsLoadedRef = useRef(false)
 
   const selectedRole = searchParams.get('role')
   const rawFunctionParam = searchParams.get('function')
@@ -631,6 +641,51 @@ function JobsList() {
     }
     loadCvAndPrefs()
   }, [])
+
+  // ROL-156: Load saved job IDs once sign-in is confirmed
+  useEffect(() => {
+    if (!isSignedIn) return
+    fetch('/api/saved-jobs')
+      .then(r => r.ok ? r.json() : { savedJobIds: [] })
+      .then(data => setSavedJobIds(new Set(data.savedJobIds || [])))
+      .catch(() => {})
+  }, [isSignedIn])
+
+  // ROL-156: Fetch full saved jobs when Saved tab is activated
+  useEffect(() => {
+    if (activeTab !== 'saved' || !isSignedIn || savedJobsLoadedRef.current) return
+    savedJobsLoadedRef.current = true
+    setSavedLoading(true)
+    fetch('/api/saved-jobs?with_jobs=true')
+      .then(r => r.ok ? r.json() : { jobs: [] })
+      .then(data => setSavedJobs(data.jobs || []))
+      .catch(() => {})
+      .finally(() => setSavedLoading(false))
+  }, [activeTab, isSignedIn])
+
+  async function handleToggleSave(jobId: string, saving: boolean) {
+    if (!isSignedIn) return
+    try {
+      const method = saving ? 'POST' : 'DELETE'
+      await fetch('/api/saved-jobs', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId }),
+      })
+      setSavedJobIds(prev => {
+        const next = new Set(prev)
+        if (saving) next.add(jobId)
+        else next.delete(jobId)
+        return next
+      })
+      if (!saving && activeTab === 'saved') {
+        setSavedJobs(prev => prev.filter(j => j.id !== jobId))
+      }
+      track('jobs.save_toggled', { job_id: jobId, saved: saving })
+    } catch {
+      // silent fail
+    }
+  }
 
   // ROL-152: Resolve the default tab once we know auth + CV state. The URL
   // override (`?tab=`) is already applied via the useState initializer above;
@@ -1188,6 +1243,23 @@ function JobsList() {
           >
             Jobs For You <span className="text-xs">✨</span>
           </button>
+          {isSignedIn && (
+            <button
+              onClick={() => { setActiveTab('saved'); setTabResolved(true) }}
+              className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+                activeTab === 'saved'
+                  ? 'border-rp-accent text-rp-accent'
+                  : 'border-transparent text-rp-text-3 hover:text-rp-text-1'
+              }`}
+            >
+              Saved
+              {savedJobIds.size > 0 && (
+                <span className="text-xs bg-rp-accent text-white rounded-full px-1.5 py-0.5 leading-none">
+                  {savedJobIds.size}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1196,6 +1268,28 @@ function JobsList() {
            either tab's content area before we know the right default. */
         <div className="max-w-4xl mx-auto px-8 py-8">
           {[...Array(6)].map((_, i) => <JobRowSkeleton key={i} />)}
+        </div>
+      ) : activeTab === 'saved' ? (
+        /* Saved tab */
+        <div className="max-w-4xl mx-auto px-8 py-8">
+          {savedLoading ? (
+            [...Array(4)].map((_, i) => <JobRowSkeleton key={i} />)
+          ) : savedJobs.length === 0 ? (
+            <div className="text-center py-16">
+              <p className="text-rp-text-2 mb-4">You haven&apos;t saved any roles yet.</p>
+              <p className="text-sm text-rp-text-3">Click the bookmark icon on any role to save it for later.</p>
+            </div>
+          ) : (
+            savedJobs.map((job: Job) => (
+              <JobRow
+                key={job.id}
+                job={job}
+                companyLogo={job.company_logo ?? undefined}
+                isSaved={true}
+                onToggleSave={handleToggleSave}
+              />
+            ))
+          )}
         </div>
       ) : activeTab === 'for-you' ? (
         /* Jobs For You tab */
@@ -1207,6 +1301,8 @@ function JobsList() {
             prefs={prefs}
             loading={forYouLoading}
             hasCv={hasCv}
+            savedJobIds={savedJobIds}
+            onToggleSave={handleToggleSave}
           />
         </div>
       ) : (
@@ -1416,6 +1512,8 @@ function JobsList() {
                   companyLogo={job.company_logo ?? undefined}
                   matchScore={matchBreakdowns[job.id]?.total ?? matchScores[job.id] ?? undefined}
                   onHide={handleHideCompany}
+                  isSaved={savedJobIds.has(job.id)}
+                  onToggleSave={handleToggleSave}
                 />
               ))
             )}

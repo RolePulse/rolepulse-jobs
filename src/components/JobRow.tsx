@@ -52,7 +52,14 @@ function MatchBadge({ score }: { score: MatchScoreState }) {
   )
 }
 
-export function JobRow({ job, companyLogo, matchScore, onHide }: { job: any; companyLogo?: string; matchScore?: MatchScoreState; onHide?: (companyName: string) => void }) {
+export function JobRow({ job, companyLogo, matchScore, onHide, isSaved, onToggleSave }: {
+  job: any
+  companyLogo?: string
+  matchScore?: MatchScoreState
+  onHide?: (companyName: string) => void
+  isSaved?: boolean
+  onToggleSave?: (jobId: string, saving: boolean) => void
+}) {
   const salaryLabel = formatSalary(job.salary_min, job.salary_max, job.salary_currency, job.salary_is_ote)
   const postedLabel = formatPostedAt(job.posted_at)
 
@@ -116,6 +123,24 @@ export function JobRow({ job, companyLogo, matchScore, onHide }: { job: any; com
             <span className="hidden sm:block text-sm text-rp-text-3 whitespace-nowrap">
               {postedLabel}
             </span>
+          )}
+          {onToggleSave && (
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleSave(job.id, !isSaved) }}
+              className="sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity text-slate-400 hover:text-rp-accent p-1 -mr-1 shrink-0"
+              aria-label={isSaved ? 'Unsave role' : 'Save role'}
+              title={isSaved ? 'Unsave role' : 'Save role'}
+            >
+              {isSaved ? (
+                <svg className="w-4 h-4 text-rp-accent" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21l-7-3.5L5 21V5a2 2 0 012-2h10a2 2 0 012 2z" />
+                </svg>
+              )}
+            </button>
           )}
           <span className="text-sm font-medium text-rp-accent whitespace-nowrap">View →</span>
         </div>
