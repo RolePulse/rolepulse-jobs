@@ -52,12 +52,12 @@ function MatchBadge({ score }: { score: MatchScoreState }) {
   )
 }
 
-export function JobRow({ job, companyLogo, matchScore }: { job: any; companyLogo?: string; matchScore?: MatchScoreState }) {
+export function JobRow({ job, companyLogo, matchScore, onHide }: { job: any; companyLogo?: string; matchScore?: MatchScoreState; onHide?: (companyName: string) => void }) {
   const salaryLabel = formatSalary(job.salary_min, job.salary_max, job.salary_currency, job.salary_is_ote)
   const postedLabel = formatPostedAt(job.posted_at)
 
   return (
-    <Link href={`/jobs/${job.slug}`} className="block cursor-pointer">
+    <Link href={`/jobs/${job.slug}`} className="block cursor-pointer group">
       <div className="flex items-center justify-between px-0 py-4 border-b border-rp-border hover:bg-[#F9FAFB] transition-colors duration-[120ms] min-h-[72px]">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <CompanyLogo
@@ -70,7 +70,19 @@ export function JobRow({ job, companyLogo, matchScore }: { job: any; companyLogo
           <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-rp-text-1 truncate">{job.title}</h3>
             <div className="flex items-center gap-2">
-              <p className="text-sm text-rp-text-2">{job.company_name}</p>
+              <div className="flex items-center gap-0.5">
+                <p className="text-sm text-rp-text-2">{job.company_name}</p>
+                {onHide && job.company_name && (
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onHide(job.company_name) }}
+                    className="sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity text-xs text-slate-300 hover:text-slate-500 px-1 leading-none"
+                    aria-label={`Hide ${job.company_name}`}
+                    title={`Hide ${job.company_name}`}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
               {salaryLabel && (
                 <span className="hidden sm:inline text-xs text-slate-500 font-medium bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 whitespace-nowrap">
                   {salaryLabel}

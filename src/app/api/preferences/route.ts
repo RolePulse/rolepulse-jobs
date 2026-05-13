@@ -8,7 +8,7 @@ export async function GET(_req: NextRequest) {
 
   const { data } = await supabase
     .from('job_seeker_profiles')
-    .select('preferred_location_type, preferred_location_city, salary_min, salary_max, salary_currency, open_to_contract')
+    .select('preferred_location_type, preferred_location_city, salary_min, salary_max, salary_currency, open_to_contract, hidden_companies')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -19,6 +19,7 @@ export async function GET(_req: NextRequest) {
     salaryMax: data?.salary_max ?? null,
     salaryCurrency: data?.salary_currency ?? 'GBP',
     openToContract: data?.open_to_contract ?? false,
+    hiddenCompanies: data?.hidden_companies ?? [],
   })
 }
 
@@ -29,6 +30,7 @@ const SUPPORTED_PREFERENCE_FIELDS = [
   'salary_max',
   'salary_currency',
   'open_to_contract',
+  'hidden_companies',
 ] as const
 
 export async function PATCH(req: NextRequest) {
