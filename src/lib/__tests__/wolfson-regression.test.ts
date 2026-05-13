@@ -102,11 +102,11 @@ function scoreJob(job: FixtureJob) {
 }
 
 // JobRow.tsx badge thresholds (must mirror src/components/JobRow.tsx).
-function badge(score: number): 'Strong' | 'Good' | 'Partial' | 'None' {
+function badge(score: number): 'Strong' | 'Good' | 'Partial' | 'Weak' {
   if (score >= 80) return 'Strong'
   if (score >= 60) return 'Good'
   if (score >= 40) return 'Partial'
-  return 'None'
+  return 'Weak'
 }
 
 describe('Wolfson regression — All Jobs tab composite scoring', () => {
@@ -166,12 +166,12 @@ describe('Wolfson regression — All Jobs tab composite scoring', () => {
     const strongCount = summary.filter(s => s.badge === 'Strong').length
     const goodCount = summary.filter(s => s.badge === 'Good').length
     const partialCount = summary.filter(s => s.badge === 'Partial').length
-    const noneCount = summary.filter(s => s.badge === 'None').length
-    expect({ strongCount, goodCount, partialCount, noneCount }).toEqual({
+    const weakCount = summary.filter(s => s.badge === 'Weak').length
+    expect({ strongCount, goodCount, partialCount, weakCount }).toEqual({
       strongCount: 1,
       goodCount: 0,
       partialCount: 9,
-      noneCount: 0,
+      weakCount: 0,
     })
   })
 })
