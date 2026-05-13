@@ -11,6 +11,13 @@ import { formatSalary } from '@/lib/salary'
 import { track } from '@/lib/analytics'
 import { mapPreferredCityToLocationChip } from '@/lib/regionDefault'
 import { diversify } from '@/lib/diversify'
+import {
+  JOB_FUNCTIONS,
+  buildFunctionFilterClause,
+  isValidFunctionSlug,
+  type JobFunction,
+  type JobFunctionSlug,
+} from '@/lib/jobFunctions'
 
 function resultCountBucket(n: number): '0' | '1-10' | '11-50' | '51+' {
   if (n === 0) return '0'
@@ -38,6 +45,8 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
   const location = searchParams.get('location') || ''
   const salary = searchParams.get('salary') || ''
 
+  // Picking a role-type chip clears any active function chip per ROL-154 spec
+  // ("filtering single-axis at a time to avoid empty result sets").
   let href = role === 'all' ? '/jobs' : `/jobs?role=${role}`
   const extras: string[] = []
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
@@ -56,6 +65,40 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
       }`}
     >
       {role === 'all' ? 'All roles' : role}
+    </Link>
+  )
+}
+
+// ROL-154: top-level function chips. Selecting one clears the role-type chip
+// and vice versa — the two are mutually exclusive single-axis filters.
+function FunctionPill({ fn, selected }: { fn: JobFunction | null; selected: boolean }) {
+  const searchParams = useSearchParams()
+  const q = searchParams.get('q') || ''
+  const company = searchParams.get('company') || ''
+  const location = searchParams.get('location') || ''
+  const salary = searchParams.get('salary') || ''
+  const remoteRegion = searchParams.get('remote_region') || ''
+
+  let href = '/jobs'
+  const extras: string[] = []
+  if (fn) extras.push(`function=${encodeURIComponent(fn.slug)}`)
+  if (q) extras.push(`q=${encodeURIComponent(q)}`)
+  if (company) extras.push(`company=${encodeURIComponent(company)}`)
+  if (location) extras.push(`location=${encodeURIComponent(location)}`)
+  if (salary) extras.push(`salary=${encodeURIComponent(salary)}`)
+  if (remoteRegion) extras.push(`remote_region=${encodeURIComponent(remoteRegion)}`)
+  if (extras.length) href += '?' + extras.join('&')
+
+  return (
+    <Link
+      href={href}
+      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+        selected
+          ? 'bg-rp-accent text-white'
+          : 'border border-[#E5E7EB] text-slate-600 hover:border-slate-400'
+      }`}
+    >
+      {fn ? fn.label : 'All functions'}
     </Link>
   )
 }
@@ -86,12 +129,14 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
   const searchParams = useSearchParams()
   const q = searchParams.get('q') || ''
   const role = searchParams.get('role') || ''
+  const fn = searchParams.get('function') || ''
   const company = searchParams.get('company') || ''
   const salary = searchParams.get('salary') || ''
 
   let href = '/jobs'
   const extras: string[] = []
   if (role) extras.push(`role=${encodeURIComponent(role)}`)
+  if (fn) extras.push(`function=${encodeURIComponent(fn)}`)
   if (loc.value) extras.push(`location=${encodeURIComponent(loc.value)}`)
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
@@ -116,6 +161,7 @@ function RemoteRegionPill({ region, selected }: { region: { label: string; value
   const searchParams = useSearchParams()
   const q = searchParams.get('q') || ''
   const role = searchParams.get('role') || ''
+  const fn = searchParams.get('function') || ''
   const company = searchParams.get('company') || ''
   const salary = searchParams.get('salary') || ''
 
@@ -124,6 +170,7 @@ function RemoteRegionPill({ region, selected }: { region: { label: string; value
   // Keep location=remote when filtering by region
   extras.push('location=remote')
   if (role) extras.push(`role=${encodeURIComponent(role)}`)
+  if (fn) extras.push(`function=${encodeURIComponent(fn)}`)
   if (region.value) extras.push(`remote_region=${encodeURIComponent(region.value)}`)
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
@@ -148,12 +195,14 @@ function SalaryPill({ option, selected }: { option: { label: string; value: stri
   const searchParams = useSearchParams()
   const q = searchParams.get('q') || ''
   const role = searchParams.get('role') || ''
+  const fn = searchParams.get('function') || ''
   const company = searchParams.get('company') || ''
   const location = searchParams.get('location') || ''
 
   let href = '/jobs'
   const extras: string[] = []
   if (role) extras.push(`role=${encodeURIComponent(role)}`)
+  if (fn) extras.push(`function=${encodeURIComponent(fn)}`)
   if (location) extras.push(`location=${encodeURIComponent(location)}`)
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
@@ -507,6 +556,8 @@ function JobsList() {
   const tabResolutionTrackedRef = useRef(false)
 
   const selectedRole = searchParams.get('role')
+  const rawFunctionParam = searchParams.get('function')
+  const selectedFunction: JobFunctionSlug | null = isValidFunctionSlug(rawFunctionParam) ? rawFunctionParam : null
   const selectedCompany = searchParams.get('company')
   const selectedLocation = searchParams.get('location') || ''
   const selectedSalary = searchParams.get('salary') || ''
@@ -603,6 +654,7 @@ function JobsList() {
     debounceRef.current = setTimeout(() => {
       const params = new URLSearchParams()
       if (selectedRole) params.set('role', selectedRole)
+      if (selectedFunction) params.set('function', selectedFunction)
       if (selectedCompany) params.set('company', selectedCompany)
       if (selectedLocation) params.set('location', selectedLocation)
       if (selectedSalary) params.set('salary', selectedSalary)
@@ -617,6 +669,7 @@ function JobsList() {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     const params = new URLSearchParams()
     if (selectedRole) params.set('role', selectedRole)
+    if (selectedFunction) params.set('function', selectedFunction)
     if (selectedCompany) params.set('company', selectedCompany)
     if (selectedLocation) params.set('location', selectedLocation)
     if (selectedSalary) params.set('salary', selectedSalary)
@@ -627,6 +680,7 @@ function JobsList() {
   function goToPage(newPage: number) {
     const params = new URLSearchParams()
     if (selectedRole) params.set('role', selectedRole)
+    if (selectedFunction) params.set('function', selectedFunction)
     if (selectedCompany) params.set('company', selectedCompany)
     if (selectedLocation) params.set('location', selectedLocation)
     if (selectedSalary) params.set('salary', selectedSalary)
@@ -653,6 +707,9 @@ function JobsList() {
 
       if (selectedRole && selectedRole !== 'all') {
         query = query.eq('role_type', selectedRole)
+      } else if (selectedFunction) {
+        const clause = buildFunctionFilterClause(selectedFunction)
+        if (clause) query = query.or(clause)
       }
 
       if (selectedCompany) {
@@ -728,6 +785,7 @@ function JobsList() {
 
       const activeFilters = [
         selectedRole && selectedRole !== 'all' ? 1 : 0,
+        selectedFunction ? 1 : 0,
         selectedCompany ? 1 : 0,
         selectedLocation ? 1 : 0,
         selectedSalary ? 1 : 0,
@@ -757,7 +815,7 @@ function JobsList() {
     }
 
     fetchData()
-  }, [selectedRole, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page])
+  }, [selectedRole, selectedFunction, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page])
 
   // Batch scoring for All Jobs tab. Gate on prefs so composite recomputation
   // (next effect) doesn't race against scoring callbacks landing first.
@@ -822,7 +880,7 @@ function JobsList() {
     scoringRef.current = false
     setMatchScores({})
     setMatchBreakdowns({})
-  }, [selectedRole, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page])
+  }, [selectedRole, selectedFunction, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page])
 
   // "Jobs For You" tab: fetch all active jobs, score, rank
   useEffect(() => {
@@ -836,12 +894,17 @@ function JobsList() {
       try {
         // Fetch all active jobs (up to 200 for ranking)
         const supabase = getSupabase()
-        const { data: jobData } = await supabase
+        let jfyQuery = supabase
           .from('jobs')
           .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url, domain)')
           .eq('status', 'active')
           .order('posted_at', { ascending: false })
           .limit(200)
+        if (selectedFunction) {
+          const clause = buildFunctionFilterClause(selectedFunction)
+          if (clause) jfyQuery = jfyQuery.or(clause)
+        }
+        const { data: jobData } = await jfyQuery
 
         const allJobs: Job[] = (jobData || []).map((j: any) => ({
           ...j,
@@ -963,7 +1026,14 @@ function JobsList() {
 
     loadForYou()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, hasCv, cvText, prefs])
+  }, [activeTab, hasCv, cvText, prefs, selectedFunction])
+
+  // Reset JFY cache when the function chip flips so the next render of the
+  // For You tab re-fetches with the new filter applied at the DB level.
+  useEffect(() => {
+    setForYouScored(false)
+    setForYouJobs([])
+  }, [selectedFunction])
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
   const totalCount = total
@@ -1078,6 +1148,20 @@ function JobsList() {
                     ×
                   </button>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* Function filters (ROL-154) */}
+          <div className="border-b border-rp-border px-8 py-4">
+            <div className="max-w-4xl mx-auto">
+              <div className="relative after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none md:after:hidden">
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:flex-wrap">
+                  <FunctionPill fn={null} selected={!selectedFunction} />
+                  {JOB_FUNCTIONS.map((fn) => (
+                    <FunctionPill key={fn.slug} fn={fn} selected={selectedFunction === fn.slug} />
+                  ))}
+                </div>
               </div>
             </div>
           </div>
