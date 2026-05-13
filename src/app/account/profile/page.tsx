@@ -40,6 +40,8 @@ interface Preferences {
   openToContract: boolean
 }
 
+const LS_HIDDEN_COMPANIES = 'rp_hidden_companies'
+
 export default function ProfilePage() {
   const [hasCv, setHasCv] = useState(false)
   const [cvFilename, setCvFilename] = useState<string | null>(null)
@@ -60,6 +62,7 @@ export default function ProfilePage() {
   })
   const [prefsSaving, setPrefsSaving] = useState(false)
   const [prefsMessage, setPrefsMessage] = useState<string | null>(null)
+  const [hiddenCompanies, setHiddenCompanies] = useState<string[]>([])
 
   const router = useRouter()
 
@@ -103,7 +106,38 @@ export default function ProfilePage() {
         salaryCurrency: data.salaryCurrency ?? getDefaultCurrency(),
         openToContract: data.openToContract ?? false,
       })
+      if (Array.isArray(data.hiddenCompanies)) {
+        setHiddenCompanies(data.hiddenCompanies)
+      } else {
+        try {
+          const stored = JSON.parse(localStorage.getItem(LS_HIDDEN_COMPANIES) || '[]')
+          if (Array.isArray(stored)) setHiddenCompanies(stored)
+        } catch { /* ignore */ }
+      }
     } catch { /* ignore */ }
+  }
+
+  async function handleUnhideCompany(company: string) {
+    const updated = hiddenCompanies.filter(c => c !== company)
+    setHiddenCompanies(updated)
+    try {
+      const res = await fetch('/api/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hidden_companies: updated }),
+      })
+      if (!res.ok) throw new Error()
+      try {
+        const stored = JSON.parse(localStorage.getItem(LS_HIDDEN_COMPANIES) || '[]')
+        localStorage.setItem(LS_HIDDEN_COMPANIES, JSON.stringify(
+          (Array.isArray(stored) ? stored : []).filter((c: string) => c !== company)
+        ))
+      } catch { /* ignore */ }
+    } catch {
+      setHiddenCompanies(hiddenCompanies)
+      setPrefsMessage('Failed to unhide company')
+      setTimeout(() => setPrefsMessage(null), 3000)
+    }
   }
 
   async function savePreferences() {
@@ -377,6 +411,32 @@ export default function ProfilePage() {
             </p>
           )}
         </div>
+
+        {/* Hidden companies section */}
+        {hiddenCompanies.length > 0 && (
+          <div className="border border-[#E5E7EB] rounded-xl p-5 mb-6">
+            <h3 className="text-sm font-semibold text-slate-700 mb-1">Hidden companies</h3>
+            <p className="text-xs text-slate-500 mb-4">These companies are hidden from your job browsing.</p>
+            <div className="flex flex-wrap gap-2">
+              {hiddenCompanies.map(company => (
+                <div key={company} className="inline-flex items-center gap-1.5 bg-slate-100 rounded-full px-3 py-1.5 text-xs">
+                  <span className="text-slate-700">{company}</span>
+                  <button
+                    onClick={() => handleUnhideCompany(company)}
+                    className="text-slate-400 hover:text-slate-700 transition-colors font-medium"
+                    aria-label={`Unhide ${company}`}
+                    title={`Unhide ${company}`}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            {prefsMessage && (
+              <p className="text-xs mt-3 text-red-500">{prefsMessage}</p>
+            )}
+          </div>
+        )}
 
         {/* Navigation links */}
         <div className="flex gap-4 text-sm text-rp-text-3">

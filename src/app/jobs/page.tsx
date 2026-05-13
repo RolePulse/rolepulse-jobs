@@ -44,6 +44,7 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
   const company = searchParams.get('company') || ''
   const location = searchParams.get('location') || ''
   const salary = searchParams.get('salary') || ''
+  const exclude = searchParams.get('exclude') || ''
 
   // Picking a role-type chip clears any active function chip per ROL-154 spec
   // ("filtering single-axis at a time to avoid empty result sets").
@@ -53,6 +54,7 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
   if (location) extras.push(`location=${encodeURIComponent(location)}`)
   if (salary) extras.push(`salary=${encodeURIComponent(salary)}`)
+  if (exclude) extras.push(`exclude=${encodeURIComponent(exclude)}`)
   if (extras.length) href += (href.includes('?') ? '&' : '?') + extras.join('&')
 
   return (
@@ -78,6 +80,7 @@ function FunctionPill({ fn, selected }: { fn: JobFunction | null; selected: bool
   const location = searchParams.get('location') || ''
   const salary = searchParams.get('salary') || ''
   const remoteRegion = searchParams.get('remote_region') || ''
+  const exclude = searchParams.get('exclude') || ''
 
   let href = '/jobs'
   const extras: string[] = []
@@ -87,6 +90,7 @@ function FunctionPill({ fn, selected }: { fn: JobFunction | null; selected: bool
   if (location) extras.push(`location=${encodeURIComponent(location)}`)
   if (salary) extras.push(`salary=${encodeURIComponent(salary)}`)
   if (remoteRegion) extras.push(`remote_region=${encodeURIComponent(remoteRegion)}`)
+  if (exclude) extras.push(`exclude=${encodeURIComponent(exclude)}`)
   if (extras.length) href += '?' + extras.join('&')
 
   return (
@@ -132,6 +136,7 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
   const fn = searchParams.get('function') || ''
   const company = searchParams.get('company') || ''
   const salary = searchParams.get('salary') || ''
+  const exclude = searchParams.get('exclude') || ''
 
   let href = '/jobs'
   const extras: string[] = []
@@ -141,6 +146,7 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
   if (salary) extras.push(`salary=${encodeURIComponent(salary)}`)
+  if (exclude) extras.push(`exclude=${encodeURIComponent(exclude)}`)
   if (extras.length) href += '?' + extras.join('&')
 
   return (
@@ -164,6 +170,7 @@ function RemoteRegionPill({ region, selected }: { region: { label: string; value
   const fn = searchParams.get('function') || ''
   const company = searchParams.get('company') || ''
   const salary = searchParams.get('salary') || ''
+  const exclude = searchParams.get('exclude') || ''
 
   let href = '/jobs'
   const extras: string[] = []
@@ -175,6 +182,7 @@ function RemoteRegionPill({ region, selected }: { region: { label: string; value
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
   if (salary) extras.push(`salary=${encodeURIComponent(salary)}`)
+  if (exclude) extras.push(`exclude=${encodeURIComponent(exclude)}`)
   if (extras.length) href += '?' + extras.join('&')
 
   return (
@@ -198,6 +206,7 @@ function SalaryPill({ option, selected }: { option: { label: string; value: stri
   const fn = searchParams.get('function') || ''
   const company = searchParams.get('company') || ''
   const location = searchParams.get('location') || ''
+  const exclude = searchParams.get('exclude') || ''
 
   let href = '/jobs'
   const extras: string[] = []
@@ -207,6 +216,7 @@ function SalaryPill({ option, selected }: { option: { label: string; value: stri
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
   if (option.value) extras.push(`salary=${encodeURIComponent(option.value)}`)
+  if (exclude) extras.push(`exclude=${encodeURIComponent(exclude)}`)
   if (extras.length) href += '?' + extras.join('&')
 
   return (
@@ -530,6 +540,9 @@ function JobsList() {
   const [total, setTotal] = useState(0)
   const [searchInput, setSearchInput] = useState(searchParams.get('q') || '')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [companyInput, setCompanyInput] = useState(searchParams.get('company') || '')
+  const companyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [hiddenCompanies, setHiddenCompanies] = useState<string[]>([])
   const [matchScores, setMatchScores] = useState<Record<string, MatchScoreState>>({})
   const scoringRef = useRef(false)
   const [hasSalaryData, setHasSalaryData] = useState(false)
@@ -558,7 +571,9 @@ function JobsList() {
   const selectedRole = searchParams.get('role')
   const rawFunctionParam = searchParams.get('function')
   const selectedFunction: JobFunctionSlug | null = isValidFunctionSlug(rawFunctionParam) ? rawFunctionParam : null
-  const selectedCompany = searchParams.get('company')
+  const selectedCompany = searchParams.get('company') || ''
+  const selectedExclude = searchParams.get('exclude') || ''
+  const excludedFromUrl = selectedExclude ? selectedExclude.split(',').map(decodeURIComponent).filter(Boolean) : []
   const selectedLocation = searchParams.get('location') || ''
   const selectedSalary = searchParams.get('salary') || ''
   const selectedRemoteRegion = searchParams.get('remote_region') || ''
@@ -568,6 +583,10 @@ function JobsList() {
   useEffect(() => {
     setSearchInput(q)
   }, [q])
+
+  useEffect(() => {
+    setCompanyInput(selectedCompany)
+  }, [selectedCompany])
 
   // Load CV status and prefs on mount
   useEffect(() => {
@@ -579,9 +598,16 @@ function JobsList() {
         ])
         if (cvRes.ok) {
           const cvData = await cvRes.json()
-          setIsSignedIn(!!cvData.isAuthenticated)
+          const signedIn = !!cvData.isAuthenticated
+          setIsSignedIn(signedIn)
           setHasCv(cvData.hasCv)
           setCvText(cvData.cvText || null)
+          if (!signedIn) {
+            try {
+              const stored = JSON.parse(localStorage.getItem('rp_hidden_companies') || '[]')
+              if (Array.isArray(stored)) setHiddenCompanies(stored)
+            } catch { /* ignore */ }
+          }
         }
         if (prefsRes.ok) {
           const prefsData = await prefsRes.json()
@@ -593,6 +619,9 @@ function JobsList() {
             salaryCurrency: prefsData.salaryCurrency ?? 'GBP',
             openToContract: prefsData.openToContract ?? false,
           })
+          if (prefsData.hiddenCompanies?.length) {
+            setHiddenCompanies(prefsData.hiddenCompanies)
+          }
         }
       } catch {
         // Not signed in — tabs still work, just no personalisation
@@ -648,18 +677,25 @@ function JobsList() {
     router.replace(`/jobs?${params.toString()}`)
   }, [prefs, router, searchParams])
 
+  function buildBaseParams() {
+    const params = new URLSearchParams()
+    if (selectedRole) params.set('role', selectedRole)
+    if (selectedFunction) params.set('function', selectedFunction)
+    if (selectedCompany) params.set('company', selectedCompany)
+    if (selectedLocation) params.set('location', selectedLocation)
+    if (selectedSalary) params.set('salary', selectedSalary)
+    if (selectedRemoteRegion) params.set('remote_region', selectedRemoteRegion)
+    if (selectedExclude) params.set('exclude', selectedExclude)
+    return params
+  }
+
   function handleSearchChange(value: string) {
     setSearchInput(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      const params = new URLSearchParams()
-      if (selectedRole) params.set('role', selectedRole)
-      if (selectedFunction) params.set('function', selectedFunction)
-      if (selectedCompany) params.set('company', selectedCompany)
-      if (selectedLocation) params.set('location', selectedLocation)
-      if (selectedSalary) params.set('salary', selectedSalary)
-      if (selectedRemoteRegion) params.set('remote_region', selectedRemoteRegion)
+      const params = buildBaseParams()
       if (value) params.set('q', value)
+      else params.delete('q')
       router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
     }, 300)
   }
@@ -667,24 +703,71 @@ function JobsList() {
   function clearSearch() {
     setSearchInput('')
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    const params = new URLSearchParams()
-    if (selectedRole) params.set('role', selectedRole)
-    if (selectedFunction) params.set('function', selectedFunction)
-    if (selectedCompany) params.set('company', selectedCompany)
-    if (selectedLocation) params.set('location', selectedLocation)
-    if (selectedSalary) params.set('salary', selectedSalary)
-    if (selectedRemoteRegion) params.set('remote_region', selectedRemoteRegion)
+    const params = buildBaseParams()
+    params.delete('q')
     router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
   }
 
+  function handleCompanySearch(value: string) {
+    setCompanyInput(value)
+    if (companyDebounceRef.current) clearTimeout(companyDebounceRef.current)
+    companyDebounceRef.current = setTimeout(() => {
+      const params = buildBaseParams()
+      if (value) params.set('company', value)
+      else params.delete('company')
+      if (q) params.set('q', q)
+      router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
+    }, 200)
+  }
+
+  function clearCompanySearch() {
+    setCompanyInput('')
+    if (companyDebounceRef.current) clearTimeout(companyDebounceRef.current)
+    const params = buildBaseParams()
+    params.delete('company')
+    if (q) params.set('q', q)
+    router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
+  }
+
+  function handleHideCompany(companyName: string) {
+    const newExcluded = [...new Set([...excludedFromUrl, companyName])]
+    const params = buildBaseParams()
+    params.set('exclude', newExcluded.join(','))
+    if (q) params.set('q', q)
+    router.push(`/jobs?${params.toString()}`, { scroll: false })
+
+    if (isSignedIn) {
+      setHiddenCompanies(prev => {
+        const updated = [...new Set([...prev, companyName])]
+        fetch('/api/preferences', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hidden_companies: updated }),
+        }).catch(() => {})
+        return updated
+      })
+    } else {
+      try {
+        const stored = JSON.parse(localStorage.getItem('rp_hidden_companies') || '[]')
+        const updated = [...new Set([...(Array.isArray(stored) ? stored : []), companyName])]
+        localStorage.setItem('rp_hidden_companies', JSON.stringify(updated))
+        setHiddenCompanies(updated)
+      } catch { /* ignore */ }
+    }
+    track('jobs.company_hidden', { company_name: companyName })
+  }
+
+  function handleClearExclude(companyName: string) {
+    const updated = excludedFromUrl.filter(c => c !== companyName)
+    const params = buildBaseParams()
+    if (updated.length > 0) params.set('exclude', updated.join(','))
+    else params.delete('exclude')
+    if (q) params.set('q', q)
+    router.push(`/jobs?${params.toString()}`, { scroll: false })
+  }
+
   function goToPage(newPage: number) {
-    const params = new URLSearchParams()
-    if (selectedRole) params.set('role', selectedRole)
-    if (selectedFunction) params.set('function', selectedFunction)
-    if (selectedCompany) params.set('company', selectedCompany)
-    if (selectedLocation) params.set('location', selectedLocation)
-    if (selectedSalary) params.set('salary', selectedSalary)
-    if (selectedRemoteRegion) params.set('remote_region', selectedRemoteRegion)
+    const params = buildBaseParams()
     if (q) params.set('q', q)
     if (newPage > 1) params.set('page', String(newPage))
     router.push(`/jobs${params.toString() ? '?' + params.toString() : ''}`)
@@ -714,13 +797,17 @@ function JobsList() {
 
       if (selectedCompany) {
         const supabaseRaw = getSupabase()
-        const { data: companyData } = await supabaseRaw
+        const { data: companyMatches } = await supabaseRaw
           .from('companies')
           .select('id')
-          .eq('slug', selectedCompany)
-          .single()
-        if (companyData) {
-          query = query.eq('company_id', (companyData as { id: string }).id)
+          .ilike('name', `%${selectedCompany}%`)
+        if (companyMatches && companyMatches.length > 0) {
+          query = query.in('company_id', companyMatches.map((c: { id: string }) => c.id))
+        } else {
+          setJobs([])
+          setTotal(0)
+          setLoading(false)
+          return
         }
       }
 
@@ -779,7 +866,13 @@ function JobsList() {
         return true
       })
 
-      const finalJobs = diversify(dedupedJobs)
+      // Client-side exclusion: filter out hidden/excluded companies
+      const allExcluded = [...new Set([...excludedFromUrl, ...hiddenCompanies])]
+      const visibleJobs = allExcluded.length > 0
+        ? dedupedJobs.filter(job => !allExcluded.includes(job.company_name))
+        : dedupedJobs
+
+      const finalJobs = diversify(visibleJobs)
       setJobs(finalJobs)
       setLoading(false)
 
@@ -815,7 +908,7 @@ function JobsList() {
     }
 
     fetchData()
-  }, [selectedRole, selectedFunction, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page])
+  }, [selectedRole, selectedFunction, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page, selectedExclude, hiddenCompanies])
 
   // Batch scoring for All Jobs tab. Gate on prefs so composite recomputation
   // (next effect) doesn't race against scoring callbacks landing first.
@@ -880,7 +973,7 @@ function JobsList() {
     scoringRef.current = false
     setMatchScores({})
     setMatchBreakdowns({})
-  }, [selectedRole, selectedFunction, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page])
+  }, [selectedRole, selectedFunction, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page, selectedExclude, hiddenCompanies])
 
   // "Jobs For You" tab: fetch all active jobs, score, rank
   useEffect(() => {
@@ -1152,6 +1245,38 @@ function JobsList() {
             </div>
           </div>
 
+          {/* Company filter input */}
+          <div className="border-b border-rp-border px-8 py-3">
+            <div className="max-w-4xl mx-auto">
+              <div className="relative">
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <input
+                  type="text"
+                  value={companyInput}
+                  onChange={(e) => handleCompanySearch(e.target.value)}
+                  placeholder="Filter by company name…"
+                  className="w-full pl-9 pr-8 py-2 rounded-full border border-rp-border bg-white text-rp-text-1 text-sm focus:outline-none focus:border-rp-accent"
+                />
+                {companyInput && (
+                  <button
+                    onClick={clearCompanySearch}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-rp-text-3 hover:text-rp-text-1 transition-colors text-sm"
+                    aria-label="Clear company filter"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Function filters (ROL-154) */}
           <div className="border-b border-rp-border px-8 py-4">
             <div className="max-w-4xl mx-auto">
@@ -1233,12 +1358,23 @@ function JobsList() {
             </div>
           )}
 
-          {/* Company filter badge */}
-          {selectedCompany && (
+          {/* Excluded company chips */}
+          {excludedFromUrl.length > 0 && (
             <div className="max-w-4xl mx-auto px-8 pt-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-rp-text-2">Company: <strong>{selectedCompany}</strong></span>
-                <a href="/jobs" className="text-xs text-rp-text-3 hover:text-rp-text-1 border border-rp-border rounded px-2 py-0.5">✕ Clear</a>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-rp-text-3 font-medium">Hiding:</span>
+                {excludedFromUrl.map(company => (
+                  <span key={company} className="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-600 rounded-full px-2.5 py-1">
+                    {company}
+                    <button
+                      onClick={() => handleClearExclude(company)}
+                      className="text-slate-400 hover:text-slate-700 transition-colors ml-0.5"
+                      aria-label={`Stop hiding ${company}`}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
               </div>
             </div>
           )}
@@ -1279,6 +1415,7 @@ function JobsList() {
                   job={job}
                   companyLogo={job.company_logo ?? undefined}
                   matchScore={matchBreakdowns[job.id]?.total ?? matchScores[job.id] ?? undefined}
+                  onHide={handleHideCompany}
                 />
               ))
             )}
