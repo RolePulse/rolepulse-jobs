@@ -485,8 +485,17 @@ function JobsList() {
   const scoringRef = useRef(false)
   const [hasSalaryData, setHasSalaryData] = useState(false)
 
-  // Jobs For You state
-  const [activeTab, setActiveTab] = useState<'all' | 'for-you'>('all')
+  // Jobs For You state. ROL-152: tab defaults to JFY when a signed-in user
+  // has a saved CV, else All Jobs. `?tab=` in the URL overrides. `tabResolved`
+  // gates the tab content render so we don't flash the wrong tab before the
+  // CV check returns.
+  const urlTab = searchParams.get('tab')
+  const urlTabOverride: 'all' | 'for-you' | null =
+    urlTab === 'all' || urlTab === 'for-you' ? urlTab : null
+  const [activeTab, setActiveTab] = useState<'all' | 'for-you'>(urlTabOverride ?? 'all')
+  const [tabResolved, setTabResolved] = useState<boolean>(urlTabOverride !== null)
+  const [isSignedIn, setIsSignedIn] = useState<boolean>(false)
+  const [cvCheckDone, setCvCheckDone] = useState<boolean>(false)
   const [hasCv, setHasCv] = useState(false)
   const [cvText, setCvText] = useState<string | null>(null)
   const [prefs, setPrefs] = useState<JobPreferences | null>(null)
@@ -495,6 +504,7 @@ function JobsList() {
   const [forYouScored, setForYouScored] = useState(false)
   const [matchBreakdowns, setMatchBreakdowns] = useState<Record<string, MatchBreakdown>>({})
   const forYouScoringRef = useRef(false)
+  const tabResolutionTrackedRef = useRef(false)
 
   const selectedRole = searchParams.get('role')
   const selectedCompany = searchParams.get('company')
@@ -518,6 +528,7 @@ function JobsList() {
         ])
         if (cvRes.ok) {
           const cvData = await cvRes.json()
+          setIsSignedIn(!!cvData.isAuthenticated)
           setHasCv(cvData.hasCv)
           setCvText(cvData.cvText || null)
         }
@@ -534,10 +545,40 @@ function JobsList() {
         }
       } catch {
         // Not signed in — tabs still work, just no personalisation
+      } finally {
+        setCvCheckDone(true)
       }
     }
     loadCvAndPrefs()
   }, [])
+
+  // ROL-152: Resolve the default tab once we know auth + CV state. The URL
+  // override (`?tab=`) is already applied via the useState initializer above;
+  // here we just wait for the CV check so the analytics payload reports
+  // accurate `has_cv` / `is_signed_in` values. Fires exactly once per mount.
+  useEffect(() => {
+    if (tabResolutionTrackedRef.current) return
+    if (!cvCheckDone) return
+    tabResolutionTrackedRef.current = true
+    if (urlTabOverride !== null) {
+      track('jobs.default_tab_resolved', {
+        tab: urlTabOverride,
+        has_cv: hasCv,
+        is_signed_in: isSignedIn,
+        source: 'url',
+      })
+      return
+    }
+    const resolved: 'all' | 'for-you' = isSignedIn && hasCv ? 'for-you' : 'all'
+    setActiveTab(resolved)
+    setTabResolved(true)
+    track('jobs.default_tab_resolved', {
+      tab: resolved,
+      has_cv: hasCv,
+      is_signed_in: isSignedIn,
+      source: 'default',
+    })
+  }, [cvCheckDone, hasCv, isSignedIn, urlTabOverride])
 
   // ROL-149: For signed-in users with a saved region, default the location
   // chip to that region on first arrival to /jobs (no ?location= in URL).
@@ -960,13 +1001,14 @@ function JobsList() {
         <div className="bg-gradient-to-b from-[#111827] to-white h-8" />
       </div>
 
-      {/* Tab switcher */}
+      {/* Tab switcher. Active-indicator suppressed until ROL-152 resolves
+          the default — prevents the wrong tab briefly showing as active. */}
       <div className="border-b border-rp-border px-8">
         <div className="max-w-4xl mx-auto flex gap-0">
           <button
-            onClick={() => setActiveTab('all')}
+            onClick={() => { setActiveTab('all'); setTabResolved(true) }}
             className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'all'
+              tabResolved && activeTab === 'all'
                 ? 'border-rp-accent text-rp-accent'
                 : 'border-transparent text-rp-text-3 hover:text-rp-text-1'
             }`}
@@ -974,9 +1016,9 @@ function JobsList() {
             All Jobs
           </button>
           <button
-            onClick={() => setActiveTab('for-you')}
+            onClick={() => { setActiveTab('for-you'); setTabResolved(true) }}
             className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-              activeTab === 'for-you'
+              tabResolved && activeTab === 'for-you'
                 ? 'border-rp-accent text-rp-accent'
                 : 'border-transparent text-rp-text-3 hover:text-rp-text-1'
             }`}
@@ -986,7 +1028,13 @@ function JobsList() {
         </div>
       </div>
 
-      {activeTab === 'for-you' ? (
+      {!tabResolved ? (
+        /* ROL-152: skeleton while waiting on CV check so we don't flash
+           either tab's content area before we know the right default. */
+        <div className="max-w-4xl mx-auto px-8 py-8">
+          {[...Array(6)].map((_, i) => <JobRowSkeleton key={i} />)}
+        </div>
+      ) : activeTab === 'for-you' ? (
         /* Jobs For You tab */
         <div className="max-w-4xl mx-auto px-8 py-8">
           <JobsForYouContent
