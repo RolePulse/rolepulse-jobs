@@ -21,7 +21,7 @@ function MatchBadge({ score }: { score: MatchScoreState }) {
       </span>
     )
   }
-  if (score === null || score === undefined || score < 40) return null
+  if (score === null || score === undefined) return null
 
   if (score >= 80) {
     return (
@@ -37,10 +37,16 @@ function MatchBadge({ score }: { score: MatchScoreState }) {
       </span>
     )
   }
-  // 40–59
+  if (score >= 40) {
+    return (
+      <span className="hidden sm:inline-flex items-center text-xs px-2.5 py-0.5 rounded-full border border-slate-200 text-slate-500 bg-slate-50 font-medium whitespace-nowrap">
+        Partial match
+      </span>
+    )
+  }
   return (
-    <span className="hidden sm:inline-flex items-center text-xs px-2.5 py-0.5 rounded-full border border-slate-200 text-slate-500 bg-slate-50 font-medium whitespace-nowrap">
-      Partial match
+    <span className="hidden sm:inline-flex items-center text-xs px-2.5 py-0.5 rounded-full border border-rose-200 text-rose-700 bg-rose-50 font-medium whitespace-nowrap">
+      Weak match
     </span>
   )
 }
