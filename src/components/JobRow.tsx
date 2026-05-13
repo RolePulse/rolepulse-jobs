@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { CompanyLogo } from './CompanyLogo'
 import { formatSalary } from '@/lib/salary'
+import { formatPostedAt } from '@/lib/postedAt'
 
 function truncateLocation(loc: string | null | undefined): string {
   if (!loc) return ''
@@ -53,6 +54,7 @@ function MatchBadge({ score }: { score: MatchScoreState }) {
 
 export function JobRow({ job, companyLogo, matchScore }: { job: any; companyLogo?: string; matchScore?: MatchScoreState }) {
   const salaryLabel = formatSalary(job.salary_min, job.salary_max, job.salary_currency, job.salary_is_ote)
+  const postedLabel = formatPostedAt(job.posted_at)
 
   return (
     <Link href={`/jobs/${job.slug}`} className="block cursor-pointer">
@@ -74,6 +76,11 @@ export function JobRow({ job, companyLogo, matchScore }: { job: any; companyLogo
                   {salaryLabel}
                 </span>
               )}
+              {postedLabel && (
+                <span className="sm:hidden text-xs text-rp-text-3 whitespace-nowrap">
+                  {postedLabel}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -92,6 +99,11 @@ export function JobRow({ job, companyLogo, matchScore }: { job: any; companyLogo
           )}
           {job.role_type && (
             <span className="hidden md:block text-sm text-rp-text-3">{job.role_type}</span>
+          )}
+          {postedLabel && (
+            <span className="hidden sm:block text-sm text-rp-text-3 whitespace-nowrap">
+              {postedLabel}
+            </span>
           )}
           <span className="text-sm font-medium text-rp-accent whitespace-nowrap">View →</span>
         </div>
