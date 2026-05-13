@@ -1,9 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { buildCvPulseHandoffUrl } from '@/lib/cvpulse-handoff'
+import { track } from '@/lib/analytics'
 
 export function CVPulseTeaser() {
   const [isVisible, setIsVisible] = useState(true)
+  const [cvPulseUrl, setCvPulseUrl] = useState<string>('https://www.cvpulse.io')
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -22,6 +26,25 @@ export function CVPulseTeaser() {
     return () => observer.disconnect()
   }, [])
 
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCvPulseUrl(buildCvPulseHandoffUrl(session?.access_token, session?.refresh_token, '/score'))
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCvPulseUrl(buildCvPulseHandoffUrl(session?.access_token, session?.refresh_token, '/score'))
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  function handleClick() {
+    try {
+      track('rolepulse.cvpulse_handoff_clicked', { source: 'home_teaser' })
+    } catch { /* noop */ }
+  }
+
   return (
     <div
       id="cv-pulse-teaser"
@@ -32,23 +55,6 @@ export function CVPulseTeaser() {
       }}
     >
       <div className="max-w-2xl mx-auto">
-        {/* Badge with pulse animation */}
-        <div
-          className={`mb-8 transition-all duration-500 ease-out ${
-            isVisible
-              ? 'opacity-100 scale-100'
-              : 'opacity-0 scale-95'
-          }`}
-          style={{
-            animation: isVisible ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none',
-          }}
-        >
-          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rp-accent/20 text-rp-accent font-bold text-xs uppercase tracking-wider">
-            <span className="w-2 h-2 bg-rp-accent rounded-full animate-pulse" />
-            Coming soon
-          </span>
-        </div>
-
         {/* Headline with fade-in and slide-up */}
         <div
           className={`transition-all duration-700 delay-100 ease-out ${
@@ -75,24 +81,16 @@ export function CVPulseTeaser() {
               job listing on RolePulse.
             </p>
 
-
+            <a
+              href={cvPulseUrl}
+              onClick={handleClick}
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-rp-accent text-white font-semibold text-base hover:opacity-90 transition-opacity"
+            >
+              Score your CV <span aria-hidden="true">→</span>
+            </a>
           </div>
         </div>
       </div>
-
-      {/* Styles for pulse animation */}
-      <style jsx>{`
-        @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.8;
-            transform: scale(1.02);
-          }
-        }
-      `}</style>
     </div>
   )
 }
