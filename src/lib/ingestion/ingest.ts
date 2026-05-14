@@ -206,6 +206,16 @@ export async function runIngestion(opts?: { batchIndex?: number | null; batchSiz
     ? allCompanies.slice(batchIndex * batchSize, (batchIndex + 1) * batchSize)
     : allCompanies
 
+  // Write initial log entry immediately — guarantees a record even if we time out later
+  const { data: logEntry } = await supabase.from('ingestion_log').insert({
+    companies_checked: companies.length,
+    jobs_inserted: 0,
+    jobs_expired: 0,
+    errors: null,
+    duration_ms: null,
+  }).select('id').single()
+  const logId = logEntry?.id ?? null
+
   for (const company of companies) {
     if (!company.ats_provider || !company.ats_token) continue
     process.stdout.write(`  → ${company.name} (${company.ats_provider})... `)
@@ -242,14 +252,22 @@ export async function runIngestion(opts?: { batchIndex?: number | null; batchSiz
       .lt('last_seen_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
   }
 
-  // Log the run
-  await supabase.from('ingestion_log').insert({
-    companies_checked: companies.length,
+  const finalStats = {
     jobs_inserted: totalInserted,
     jobs_expired: totalExpired,
     errors: Object.keys(errors).length > 0 ? errors : null,
     duration_ms: Date.now() - startTime,
-  })
+  }
+
+  if (logId) {
+    await supabase.from('ingestion_log').update(finalStats).eq('id', logId)
+  } else {
+    // Fallback if initial insert failed
+    await supabase.from('ingestion_log').insert({
+      companies_checked: companies.length,
+      ...finalStats,
+    })
+  }
 
   return { totalInserted, totalExpired, errors }
 }
