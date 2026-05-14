@@ -106,13 +106,17 @@ export function extractFromAts(params: {
 export function extractFromText(text: string): SalaryResult {
   if (!text) return EMPTY
 
-  // Strip HTML
+  // Strip HTML; decode common dash/space entities so ranges using
+  // `&mdash;` / `&ndash;` (common on Greenhouse US pay disclosures)
+  // become parseable by the dash alternation below.
   const plain = text
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
+    .replace(/&mdash;|&#8212;/g, '—')
+    .replace(/&ndash;|&#8211;/g, '–')
     .replace(/\s+/g, ' ')
 
   const isOte = /\bote\b|\bon[-\s]target\b|\bwith\s+ote\b/i.test(plain)
@@ -123,16 +127,17 @@ export function extractFromText(text: string): SalaryResult {
   else if (/€\s*\d/.test(plain)) currency = 'EUR'
   else if (/£\s*\d/.test(plain)) currency = 'GBP'
 
-  // Patterns to try (ordered by specificity)
+  // Patterns to try (ordered by specificity). The dash alternation
+  // `(?:–|—|-|to)` covers en-dash, em-dash, hyphen, and the word "to".
   const rangePatterns = [
     // £60,000 – £80,000 or £60k-£80k
-    /[£$€]\s*([\d,]+k?)\s*(?:–|-|to)\s*[£$€]?\s*([\d,]+k?)/i,
+    /[£$€]\s*([\d,]+k?)\s*(?:–|—|-|to)\s*[£$€]?\s*([\d,]+k?)/i,
     // 60,000 - 80,000 GBP / USD / EUR
-    /([\d,]+k?)\s*(?:–|-|to)\s*([\d,]+k?)\s*(?:GBP|USD|EUR|per annum|pa\b|p\.a\.)/i,
+    /([\d,]+k?)\s*(?:–|—|-|to)\s*([\d,]+k?)\s*(?:GBP|USD|EUR|per annum|pa\b|p\.a\.)/i,
     // £60k - £80k OTE
-    /[£$€]\s*([\d,]+k?)\s*(?:–|-|to)\s*([\d,]+k?)\s*(?:ote|base|per|pa\b|p\.a\.|gross)/i,
+    /[£$€]\s*([\d,]+k?)\s*(?:–|—|-|to)\s*([\d,]+k?)\s*(?:ote|base|per|pa\b|p\.a\.|gross)/i,
     // "salary: £70,000 to £85,000"
-    /salary[:\s]+[£$€]?\s*([\d,]+k?)\s*(?:–|-|to)\s*[£$€]?\s*([\d,]+k?)/i,
+    /salary[:\s]+[£$€]?\s*([\d,]+k?)\s*(?:–|—|-|to)\s*[£$€]?\s*([\d,]+k?)/i,
     // "up to £90k" or "up to $90,000"
     /up\s+to\s+[£$€]?\s*([\d,]+k?)/i,
     // "from £60k"
