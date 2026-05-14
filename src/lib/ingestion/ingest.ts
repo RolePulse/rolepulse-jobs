@@ -81,31 +81,61 @@ async function ingestGreenhouse(token: string, companyId: string): Promise<{ cou
 
 async function ingestAshby(token: string, companyId: string): Promise<{ count: number; error: string | null }> {
   const supabase = getSupabase()
-  const url = 'https://jobs.ashbyhq.com/api/non-user-graphql?op=ApiJobBoardWithTeams'
-  const query = `query ApiJobBoardWithTeams($organizationHostedJobsPageName: String!) {
-    jobBoard(organizationHostedJobsPageName: $organizationHostedJobsPageName) {
-      jobPostings { id title locationName isRemote descriptionHtml applicationLink }
+  const ASHBY_GQL = 'https://jobs.ashbyhq.com/api/non-user-graphql'
+
+  // Step 1: fetch the listing (id + title + location only — description/applyLink moved to per-job query)
+  const listQuery = `query ApiJobBoardWithTeams($organizationHostedJobsPageName: String!) {
+    jobBoardWithTeams(organizationHostedJobsPageName: $organizationHostedJobsPageName) {
+      jobPostings { id title locationName workplaceType }
     }
   }`
   try {
-    const res = await fetch(url, {
+    const listRes = await fetch(`${ASHBY_GQL}?op=ApiJobBoardWithTeams`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operationName: 'ApiJobBoardWithTeams', variables: { organizationHostedJobsPageName: token }, query }),
+      body: JSON.stringify({ operationName: 'ApiJobBoardWithTeams', variables: { organizationHostedJobsPageName: token }, query: listQuery }),
     })
-    if (!res.ok) throw new Error(`Ashby ${res.status} for token: ${token}`)
-    const data = await res.json() as { data?: { jobBoard?: { jobPostings?: any[] } } }
-    const jobs = data.data?.jobBoard?.jobPostings || []
+    if (!listRes.ok) throw new Error(`Ashby ${listRes.status} for token: ${token}`)
+    const listData = await listRes.json() as { data?: { jobBoardWithTeams?: { jobPostings?: any[] } } }
+    const allJobs = listData.data?.jobBoardWithTeams?.jobPostings || []
+
+    // Filter to GTM roles before fetching descriptions (avoid N+1 for non-GTM)
+    const gtmJobs = allJobs.filter(j => classifyRole(j.title) !== null)
 
     let gtmCount = 0
     let salaryExtractedCount = 0
-    for (const job of jobs) {
-      const roleType = classifyRole(job.title)
-      if (!roleType) continue // skip non-GTM roles
+
+    for (const job of gtmJobs) {
+      const roleType = classifyRole(job.title)!
       const slug = `${job.id}-${(job.title as string).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`
-      const description = job.descriptionHtml || ''
+      const applyUrl = `https://jobs.ashbyhq.com/${token}/${job.id}`
+      const remote = job.workplaceType === 'Remote'
+
+      // Step 2: fetch full description for this posting
+      let description = ''
+      try {
+        const detailRes = await fetch(`${ASHBY_GQL}?op=ApiJobPosting`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operationName: 'ApiJobPosting',
+            variables: { organizationHostedJobsPageName: token, jobPostingId: job.id },
+            query: `query ApiJobPosting($organizationHostedJobsPageName: String!, $jobPostingId: String!) {
+              jobPosting(organizationHostedJobsPageName: $organizationHostedJobsPageName, jobPostingId: $jobPostingId) {
+                descriptionHtml
+              }
+            }`,
+          }),
+        })
+        if (detailRes.ok) {
+          const detail = await detailRes.json() as { data?: { jobPosting?: { descriptionHtml?: string } } }
+          description = detail.data?.jobPosting?.descriptionHtml || ''
+        }
+      } catch (_) { /* skip description on error */ }
+
       const salary = extractSalary({ source: 'ashby', job, description })
       if (salary.salary_min !== null || salary.salary_max !== null) salaryExtractedCount++
+
       const { error } = await supabase
         .from('jobs')
         .upsert({
@@ -113,12 +143,12 @@ async function ingestAshby(token: string, companyId: string): Promise<{ count: n
           title: job.title,
           slug,
           description,
-          apply_url: job.applicationLink,
+          apply_url: applyUrl,
           source: 'ashby',
           external_id: job.id,
           role_type: roleType,
           location: job.locationName || '',
-          remote: job.isRemote || false,
+          remote,
           status: 'active',
           last_seen_at: new Date().toISOString(),
           expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
