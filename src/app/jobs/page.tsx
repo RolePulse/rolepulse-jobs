@@ -43,7 +43,10 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
   const q = searchParams.get('q') || ''
   const company = searchParams.get('company') || ''
   const location = searchParams.get('location') || ''
-  const salary = searchParams.get('salary') || ''
+  const salaryMin = searchParams.get('salary_min') || ''
+  const salaryMax = searchParams.get('salary_max') || ''
+  const salaryBasis = searchParams.get('salary_basis') || ''
+  const salaryIncludeNull = searchParams.get('salary_include_null') || ''
   const exclude = searchParams.get('exclude') || ''
 
   // Picking a role-type chip clears any active function chip per ROL-154 spec
@@ -53,7 +56,10 @@ function FilterPill({ role, selected }: { role: string; selected: boolean }) {
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
   if (location) extras.push(`location=${encodeURIComponent(location)}`)
-  if (salary) extras.push(`salary=${encodeURIComponent(salary)}`)
+  if (salaryMin) extras.push(`salary_min=${encodeURIComponent(salaryMin)}`)
+  if (salaryMax) extras.push(`salary_max=${encodeURIComponent(salaryMax)}`)
+  if (salaryBasis) extras.push(`salary_basis=${encodeURIComponent(salaryBasis)}`)
+  if (salaryIncludeNull) extras.push(`salary_include_null=${encodeURIComponent(salaryIncludeNull)}`)
   if (exclude) extras.push(`exclude=${encodeURIComponent(exclude)}`)
   if (extras.length) href += (href.includes('?') ? '&' : '?') + extras.join('&')
 
@@ -78,7 +84,10 @@ function FunctionPill({ fn, selected }: { fn: JobFunction | null; selected: bool
   const q = searchParams.get('q') || ''
   const company = searchParams.get('company') || ''
   const location = searchParams.get('location') || ''
-  const salary = searchParams.get('salary') || ''
+  const salaryMin = searchParams.get('salary_min') || ''
+  const salaryMax = searchParams.get('salary_max') || ''
+  const salaryBasis = searchParams.get('salary_basis') || ''
+  const salaryIncludeNull = searchParams.get('salary_include_null') || ''
   const remoteRegion = searchParams.get('remote_region') || ''
   const exclude = searchParams.get('exclude') || ''
 
@@ -88,7 +97,10 @@ function FunctionPill({ fn, selected }: { fn: JobFunction | null; selected: bool
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
   if (location) extras.push(`location=${encodeURIComponent(location)}`)
-  if (salary) extras.push(`salary=${encodeURIComponent(salary)}`)
+  if (salaryMin) extras.push(`salary_min=${encodeURIComponent(salaryMin)}`)
+  if (salaryMax) extras.push(`salary_max=${encodeURIComponent(salaryMax)}`)
+  if (salaryBasis) extras.push(`salary_basis=${encodeURIComponent(salaryBasis)}`)
+  if (salaryIncludeNull) extras.push(`salary_include_null=${encodeURIComponent(salaryIncludeNull)}`)
   if (remoteRegion) extras.push(`remote_region=${encodeURIComponent(remoteRegion)}`)
   if (exclude) extras.push(`exclude=${encodeURIComponent(exclude)}`)
   if (extras.length) href += '?' + extras.join('&')
@@ -135,7 +147,10 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
   const role = searchParams.get('role') || ''
   const fn = searchParams.get('function') || ''
   const company = searchParams.get('company') || ''
-  const salary = searchParams.get('salary') || ''
+  const salaryMin = searchParams.get('salary_min') || ''
+  const salaryMax = searchParams.get('salary_max') || ''
+  const salaryBasis = searchParams.get('salary_basis') || ''
+  const salaryIncludeNull = searchParams.get('salary_include_null') || ''
   const exclude = searchParams.get('exclude') || ''
 
   let href = '/jobs'
@@ -145,7 +160,10 @@ function LocationPill({ loc, selected }: { loc: { label: string; value: string }
   if (loc.value) extras.push(`location=${encodeURIComponent(loc.value)}`)
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
-  if (salary) extras.push(`salary=${encodeURIComponent(salary)}`)
+  if (salaryMin) extras.push(`salary_min=${encodeURIComponent(salaryMin)}`)
+  if (salaryMax) extras.push(`salary_max=${encodeURIComponent(salaryMax)}`)
+  if (salaryBasis) extras.push(`salary_basis=${encodeURIComponent(salaryBasis)}`)
+  if (salaryIncludeNull) extras.push(`salary_include_null=${encodeURIComponent(salaryIncludeNull)}`)
   if (exclude) extras.push(`exclude=${encodeURIComponent(exclude)}`)
   if (extras.length) href += '?' + extras.join('&')
 
@@ -169,7 +187,10 @@ function RemoteRegionPill({ region, selected }: { region: { label: string; value
   const role = searchParams.get('role') || ''
   const fn = searchParams.get('function') || ''
   const company = searchParams.get('company') || ''
-  const salary = searchParams.get('salary') || ''
+  const salaryMin = searchParams.get('salary_min') || ''
+  const salaryMax = searchParams.get('salary_max') || ''
+  const salaryBasis = searchParams.get('salary_basis') || ''
+  const salaryIncludeNull = searchParams.get('salary_include_null') || ''
   const exclude = searchParams.get('exclude') || ''
 
   let href = '/jobs'
@@ -181,7 +202,10 @@ function RemoteRegionPill({ region, selected }: { region: { label: string; value
   if (region.value) extras.push(`remote_region=${encodeURIComponent(region.value)}`)
   if (q) extras.push(`q=${encodeURIComponent(q)}`)
   if (company) extras.push(`company=${encodeURIComponent(company)}`)
-  if (salary) extras.push(`salary=${encodeURIComponent(salary)}`)
+  if (salaryMin) extras.push(`salary_min=${encodeURIComponent(salaryMin)}`)
+  if (salaryMax) extras.push(`salary_max=${encodeURIComponent(salaryMax)}`)
+  if (salaryBasis) extras.push(`salary_basis=${encodeURIComponent(salaryBasis)}`)
+  if (salaryIncludeNull) extras.push(`salary_include_null=${encodeURIComponent(salaryIncludeNull)}`)
   if (exclude) extras.push(`exclude=${encodeURIComponent(exclude)}`)
   if (extras.length) href += '?' + extras.join('&')
 
@@ -199,37 +223,74 @@ function RemoteRegionPill({ region, selected }: { region: { label: string; value
   )
 }
 
-function SalaryPill({ option, selected }: { option: { label: string; value: string }; selected: boolean }) {
-  const searchParams = useSearchParams()
-  const q = searchParams.get('q') || ''
-  const role = searchParams.get('role') || ''
-  const fn = searchParams.get('function') || ''
-  const company = searchParams.get('company') || ''
-  const location = searchParams.get('location') || ''
-  const exclude = searchParams.get('exclude') || ''
-
-  let href = '/jobs'
-  const extras: string[] = []
-  if (role) extras.push(`role=${encodeURIComponent(role)}`)
-  if (fn) extras.push(`function=${encodeURIComponent(fn)}`)
-  if (location) extras.push(`location=${encodeURIComponent(location)}`)
-  if (q) extras.push(`q=${encodeURIComponent(q)}`)
-  if (company) extras.push(`company=${encodeURIComponent(company)}`)
-  if (option.value) extras.push(`salary=${encodeURIComponent(option.value)}`)
-  if (exclude) extras.push(`exclude=${encodeURIComponent(exclude)}`)
-  if (extras.length) href += '?' + extras.join('&')
-
+function SalaryRangeFilter({
+  minInput, maxInput, basis, includeNull, onMinChange, onMaxChange, onBasisChange, onIncludeNullChange,
+}: {
+  minInput: string; maxInput: string; basis: 'ote' | 'base'; includeNull: boolean
+  onMinChange: (v: string) => void; onMaxChange: (v: string) => void
+  onBasisChange: (v: 'ote' | 'base') => void; onIncludeNullChange: (v: boolean) => void
+}) {
   return (
-    <Link
-      href={href}
-      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
-        selected
-          ? 'bg-rp-accent text-white'
-          : 'border border-[#E5E7EB] text-slate-600 hover:border-slate-400'
-      }`}
-    >
-      {option.label}
-    </Link>
+    <div className="border-b border-rp-border px-8 py-3">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-xs text-slate-400 font-medium whitespace-nowrap">Salary</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-400">£</span>
+            <input
+              type="number"
+              placeholder="Min"
+              value={minInput}
+              onChange={e => onMinChange(e.target.value)}
+              className="w-24 text-sm border border-slate-200 rounded px-2 py-1 text-slate-700 focus:outline-none focus:border-slate-400"
+              min={0}
+              step={5000}
+            />
+            <span className="text-xs text-slate-400">–</span>
+            <input
+              type="number"
+              placeholder="Max"
+              value={maxInput}
+              onChange={e => onMaxChange(e.target.value)}
+              className="w-24 text-sm border border-slate-200 rounded px-2 py-1 text-slate-700 focus:outline-none focus:border-slate-400"
+              min={0}
+              step={5000}
+            />
+          </div>
+          <div className="flex items-center rounded-full border border-slate-200 overflow-hidden text-xs font-medium">
+            <button
+              onClick={() => onBasisChange('base')}
+              className={`px-3 py-1 transition-colors ${basis === 'base' ? 'bg-rp-accent text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              Base
+            </button>
+            <button
+              onClick={() => onBasisChange('ote')}
+              className={`px-3 py-1 transition-colors ${basis === 'ote' ? 'bg-rp-accent text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              OTE
+            </button>
+          </div>
+          <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeNull}
+              onChange={e => onIncludeNullChange(e.target.checked)}
+              className="rounded border-slate-300"
+            />
+            Include roles with no salary listed
+          </label>
+          {(minInput || maxInput) && (
+            <button
+              onClick={() => { onMinChange(''); onMaxChange('') }}
+              className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -251,14 +312,6 @@ interface Job {
   salary_is_ote?: boolean | null
 }
 
-const SALARY_FILTERS = [
-  { label: 'Any salary', value: '' },
-  { label: '£40K+', value: '40000' },
-  { label: '£60K+', value: '60000' },
-  { label: '£80K+', value: '80000' },
-  { label: '£100K+', value: '100000' },
-  { label: '£120K+', value: '120000' },
-]
 
 const CV_SCORE_SESSION_PREFIX = 'rp_cv_score_'
 const CV_SCORE_TTL_MS = 24 * 60 * 60 * 1000
@@ -548,10 +601,18 @@ function JobsList() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [companyInput, setCompanyInput] = useState(searchParams.get('company') || '')
   const companyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [salaryMinInput, setSalaryMinInput] = useState(searchParams.get('salary_min') || '')
+  const [salaryMaxInput, setSalaryMaxInput] = useState(searchParams.get('salary_max') || '')
+  const [salaryBasisState, setSalaryBasisState] = useState<'ote' | 'base'>(
+    (searchParams.get('salary_basis') as 'ote' | 'base') || 'base'
+  )
+  const [salaryIncludeNullState, setSalaryIncludeNullState] = useState(
+    searchParams.get('salary_include_null') !== 'false'
+  )
+  const salaryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [hiddenCompanies, setHiddenCompanies] = useState<string[]>([])
   const [matchScores, setMatchScores] = useState<Record<string, MatchScoreState>>({})
   const scoringRef = useRef(false)
-  const [hasSalaryData, setHasSalaryData] = useState(false)
 
   // Jobs For You state. ROL-152: tab defaults to JFY when a signed-in user
   // has a saved CV, else All Jobs. `?tab=` in the URL overrides. `tabResolved`
@@ -585,18 +646,20 @@ function JobsList() {
   const selectedExclude = searchParams.get('exclude') || ''
   const excludedFromUrl = selectedExclude ? selectedExclude.split(',').map(decodeURIComponent).filter(Boolean) : []
   const selectedLocation = searchParams.get('location') || ''
-  const selectedSalary = searchParams.get('salary') || ''
+  const selectedSalaryMin = searchParams.get('salary_min') || ''
+  const selectedSalaryMax = searchParams.get('salary_max') || ''
+  const selectedSalaryBasis = (searchParams.get('salary_basis') as 'ote' | 'base') || 'base'
+  const selectedSalaryIncludeNull = searchParams.get('salary_include_null') !== 'false'
   const selectedRemoteRegion = searchParams.get('remote_region') || ''
   const q = searchParams.get('q') || ''
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
 
-  useEffect(() => {
-    setSearchInput(q)
-  }, [q])
-
-  useEffect(() => {
-    setCompanyInput(selectedCompany)
-  }, [selectedCompany])
+  useEffect(() => { setSearchInput(q) }, [q])
+  useEffect(() => { setCompanyInput(selectedCompany) }, [selectedCompany])
+  useEffect(() => { setSalaryMinInput(selectedSalaryMin) }, [selectedSalaryMin])
+  useEffect(() => { setSalaryMaxInput(selectedSalaryMax) }, [selectedSalaryMax])
+  useEffect(() => { setSalaryBasisState(selectedSalaryBasis) }, [selectedSalaryBasis])
+  useEffect(() => { setSalaryIncludeNullState(selectedSalaryIncludeNull) }, [selectedSalaryIncludeNull])
 
   // Load CV status and prefs on mount
   useEffect(() => {
@@ -738,10 +801,58 @@ function JobsList() {
     if (selectedFunction) params.set('function', selectedFunction)
     if (selectedCompany) params.set('company', selectedCompany)
     if (selectedLocation) params.set('location', selectedLocation)
-    if (selectedSalary) params.set('salary', selectedSalary)
     if (selectedRemoteRegion) params.set('remote_region', selectedRemoteRegion)
     if (selectedExclude) params.set('exclude', selectedExclude)
+    if (selectedSalaryMin) params.set('salary_min', selectedSalaryMin)
+    if (selectedSalaryMax) params.set('salary_max', selectedSalaryMax)
+    if (selectedSalaryBasis !== 'base') params.set('salary_basis', selectedSalaryBasis)
+    if (!selectedSalaryIncludeNull) params.set('salary_include_null', 'false')
     return params
+  }
+
+  function buildSalaryParams(min: string, max: string, basis: 'ote' | 'base', includeNull: boolean) {
+    const params = buildBaseParams()
+    if (q) params.set('q', q)
+    params.delete('salary_min'); params.delete('salary_max')
+    params.delete('salary_basis'); params.delete('salary_include_null')
+    if (min) params.set('salary_min', min)
+    if (max) params.set('salary_max', max)
+    if (basis !== 'base') params.set('salary_basis', basis)
+    if (!includeNull) params.set('salary_include_null', 'false')
+    return params
+  }
+
+  function handleSalaryMinChange(value: string) {
+    setSalaryMinInput(value)
+    if (salaryDebounceRef.current) clearTimeout(salaryDebounceRef.current)
+    salaryDebounceRef.current = setTimeout(() => {
+      const params = buildSalaryParams(value, salaryMaxInput, salaryBasisState, salaryIncludeNullState)
+      router.replace(`/jobs${params.toString() ? '?' + params.toString() : ''}`, { scroll: false })
+      if (value || salaryMaxInput) track('jobs.salary_filter_applied', { min: value, max: salaryMaxInput, basis: salaryBasisState, include_null: salaryIncludeNullState })
+    }, 200)
+  }
+
+  function handleSalaryMaxChange(value: string) {
+    setSalaryMaxInput(value)
+    if (salaryDebounceRef.current) clearTimeout(salaryDebounceRef.current)
+    salaryDebounceRef.current = setTimeout(() => {
+      const params = buildSalaryParams(salaryMinInput, value, salaryBasisState, salaryIncludeNullState)
+      router.replace(`/jobs${params.toString() ? '?' + params.toString() : ''}`, { scroll: false })
+      if (salaryMinInput || value) track('jobs.salary_filter_applied', { min: salaryMinInput, max: value, basis: salaryBasisState, include_null: salaryIncludeNullState })
+    }, 200)
+  }
+
+  function handleSalaryBasisChange(basis: 'ote' | 'base') {
+    setSalaryBasisState(basis)
+    const params = buildSalaryParams(salaryMinInput, salaryMaxInput, basis, salaryIncludeNullState)
+    router.replace(`/jobs${params.toString() ? '?' + params.toString() : ''}`, { scroll: false })
+    if (salaryMinInput || salaryMaxInput) track('jobs.salary_filter_applied', { min: salaryMinInput, max: salaryMaxInput, basis, include_null: salaryIncludeNullState })
+  }
+
+  function handleSalaryIncludeNullChange(includeNull: boolean) {
+    setSalaryIncludeNullState(includeNull)
+    const params = buildSalaryParams(salaryMinInput, salaryMaxInput, salaryBasisState, includeNull)
+    router.replace(`/jobs${params.toString() ? '?' + params.toString() : ''}`, { scroll: false })
   }
 
   function handleSearchChange(value: string) {
@@ -838,7 +949,7 @@ function JobsList() {
 
       let query = supabase
         .from('jobs')
-        .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url, domain)', { count: 'exact' })
+        .select('id, title, slug, location, remote, role_type, posted_at, description, salary_min, salary_max, salary_currency, salary_is_ote, companies(name, logo_url, domain)', { count: 'exact' })
         .eq('status', 'active')
         .order('posted_at', { ascending: false })
         .range(from, to)
@@ -891,8 +1002,41 @@ function JobsList() {
         }
       }
 
-      // Salary filter disabled: salary columns not present in jobs schema
-      // if (selectedSalary) { ... }
+      // Salary range filter
+      const salaryMinN = selectedSalaryMin ? Number(selectedSalaryMin) : null
+      const salaryMaxN = selectedSalaryMax ? Number(selectedSalaryMax) : null
+      if (salaryMinN !== null || salaryMaxN !== null) {
+        const field = selectedSalaryBasis === 'ote' ? 'salary_max' : 'salary_min'
+        // OTE/base gate (include null-salary roles when includeNull=true)
+        if (selectedSalaryBasis === 'ote') {
+          if (selectedSalaryIncludeNull) {
+            query = query.or('salary_is_ote.eq.true,salary_min.is.null')
+          } else {
+            query = query.eq('salary_is_ote', true)
+          }
+        } else {
+          if (selectedSalaryIncludeNull) {
+            query = query.or('salary_is_ote.eq.false,salary_min.is.null')
+          } else {
+            query = query.eq('salary_is_ote', false).not('salary_min', 'is', null)
+          }
+        }
+        // Range bounds
+        if (salaryMinN !== null) {
+          if (selectedSalaryIncludeNull) {
+            query = query.or(`${field}.gte.${salaryMinN},${field}.is.null`)
+          } else {
+            query = query.gte(field, salaryMinN)
+          }
+        }
+        if (salaryMaxN !== null) {
+          if (selectedSalaryIncludeNull) {
+            query = query.or(`${field}.lte.${salaryMaxN},${field}.is.null`)
+          } else {
+            query = query.lte(field, salaryMaxN)
+          }
+        }
+      }
 
       const { data: jobData, count, error: queryError } = await query
       if (queryError) {
@@ -907,10 +1051,10 @@ function JobsList() {
         company_domain: j.companies?.domain || null,
         description: j.description || null,
         remote_regions: j.remote_regions || null,
-        salary_min: null,
-        salary_max: null,
-        salary_currency: null,
-        salary_is_ote: null,
+        salary_min: j.salary_min ?? null,
+        salary_max: j.salary_max ?? null,
+        salary_currency: j.salary_currency ?? null,
+        salary_is_ote: j.salary_is_ote ?? null,
       }))
 
       // Deduplicate by slug
@@ -936,7 +1080,7 @@ function JobsList() {
         selectedFunction ? 1 : 0,
         selectedCompany ? 1 : 0,
         selectedLocation ? 1 : 0,
-        selectedSalary ? 1 : 0,
+        selectedSalaryMin || selectedSalaryMax ? 1 : 0,
         selectedRemoteRegion ? 1 : 0,
       ].reduce((a, b) => a + b, 0)
 
@@ -947,9 +1091,6 @@ function JobsList() {
           result_count_bucket: resultCountBucket(count || 0),
         })
       }
-
-      // Salary columns don't exist in jobs schema — hide salary filters
-      setHasSalaryData(false)
 
       // Pre-populate scores from sessionStorage
       const cachedScores: Record<string, MatchScoreState> = {}
@@ -963,7 +1104,7 @@ function JobsList() {
     }
 
     fetchData()
-  }, [selectedRole, selectedFunction, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page, selectedExclude, hiddenCompanies])
+  }, [selectedRole, selectedFunction, selectedCompany, selectedLocation, selectedSalaryMin, selectedSalaryMax, selectedSalaryBasis, selectedSalaryIncludeNull, selectedRemoteRegion, q, page, selectedExclude, hiddenCompanies])
 
   // Batch scoring for All Jobs tab. Gate on prefs so composite recomputation
   // (next effect) doesn't race against scoring callbacks landing first.
@@ -1028,7 +1169,7 @@ function JobsList() {
     scoringRef.current = false
     setMatchScores({})
     setMatchBreakdowns({})
-  }, [selectedRole, selectedFunction, selectedCompany, selectedLocation, selectedSalary, selectedRemoteRegion, q, page, selectedExclude, hiddenCompanies])
+  }, [selectedRole, selectedFunction, selectedCompany, selectedLocation, selectedSalaryMin, selectedSalaryMax, selectedSalaryBasis, selectedSalaryIncludeNull, selectedRemoteRegion, q, page, selectedExclude, hiddenCompanies])
 
   // "Jobs For You" tab: fetch all active jobs, score, rank
   useEffect(() => {
@@ -1438,21 +1579,17 @@ function JobsList() {
             </div>
           )}
 
-          {/* Salary filters — only shown when salary data exists */}
-          {hasSalaryData && (
-            <div className="border-b border-rp-border px-8 py-3">
-              <div className="max-w-4xl mx-auto">
-                <div className="relative after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none md:after:hidden">
-                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:flex-wrap items-center">
-                    <span className="text-xs text-slate-400 font-medium whitespace-nowrap mr-1">Salary</span>
-                    {SALARY_FILTERS.map((opt) => (
-                      <SalaryPill key={opt.value} option={opt} selected={selectedSalary === opt.value} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Salary range filter */}
+          <SalaryRangeFilter
+            minInput={salaryMinInput}
+            maxInput={salaryMaxInput}
+            basis={salaryBasisState}
+            includeNull={salaryIncludeNullState}
+            onMinChange={handleSalaryMinChange}
+            onMaxChange={handleSalaryMaxChange}
+            onBasisChange={handleSalaryBasisChange}
+            onIncludeNullChange={handleSalaryIncludeNullChange}
+          />
 
           {/* Excluded company chips */}
           {excludedFromUrl.length > 0 && (
@@ -1496,7 +1633,11 @@ function JobsList() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <h3 className="text-lg font-semibold text-slate-700 mb-2">No roles found</h3>
-                <p className="text-slate-500 mb-6">Try a different search term or adjust your filters.</p>
+                <p className="text-slate-500 mb-6">
+                  {(selectedSalaryMin || selectedSalaryMax)
+                    ? "No roles match this salary range. Try broadening or including roles without salary listed."
+                    : "Try a different search term or adjust your filters."}
+                </p>
                 <a
                   href="/jobs"
                   className="inline-flex items-center px-4 py-2 rounded-full border border-slate-300 text-sm text-slate-600 hover:border-slate-400 transition-colors"
