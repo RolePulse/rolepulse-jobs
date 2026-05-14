@@ -52,13 +52,16 @@ function MatchBadge({ score }: { score: MatchScoreState }) {
   )
 }
 
-export function JobRow({ job, companyLogo, matchScore, onHide, isSaved, onToggleSave }: {
+export function JobRow({ job, companyLogo, matchScore, onHide, isSaved, onToggleSave, jobStatus, onSetStatus, onClearStatus }: {
   job: any
   companyLogo?: string
   matchScore?: MatchScoreState
   onHide?: (companyName: string) => void
   isSaved?: boolean
   onToggleSave?: (jobId: string, saving: boolean) => void
+  jobStatus?: 'applied' | 'not_interested' | null
+  onSetStatus?: (jobId: string, status: 'applied' | 'not_interested') => void
+  onClearStatus?: (jobId: string) => void
 }) {
   const salaryLabel = formatSalary(job.salary_min, job.salary_max, job.salary_currency, job.salary_is_ote)
   const postedLabel = formatPostedAt(job.posted_at)
@@ -137,10 +140,64 @@ export function JobRow({ job, companyLogo, matchScore, onHide, isSaved, onToggle
                 </svg>
               ) : (
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 21l-7-3.5L5 21V5a2 2 0 012-2h10a2 2 0 012 2z" />
+                  <path d="M19 21l-7-3.5L5 21V5a2 2 0 012-2h10a2 2 0 012z" />
                 </svg>
               )}
             </button>
+          )}
+          {/* Applied / Not interested actions — only for signed-in users (callbacks present) */}
+          {(onSetStatus || onClearStatus) && (
+            <div className="flex items-center gap-1">
+              {/* Applied button */}
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  if (jobStatus === 'applied') {
+                    onClearStatus?.(job.id)
+                  } else {
+                    onSetStatus?.(job.id, 'applied')
+                  }
+                }}
+                className={`sm:transition-opacity p-1 shrink-0 rounded ${
+                  jobStatus === 'applied'
+                    ? 'text-green-600'
+                    : 'sm:opacity-0 sm:group-hover:opacity-100 text-slate-400 hover:text-green-600'
+                }`}
+                aria-label={jobStatus === 'applied' ? 'Unmark applied' : 'Mark as applied'}
+                title={jobStatus === 'applied' ? 'Unmark applied' : 'Mark as applied'}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </button>
+              {/* Not interested button — hidden when job is already applied */}
+              {jobStatus !== 'applied' && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    if (jobStatus === 'not_interested') {
+                      onClearStatus?.(job.id)
+                    } else {
+                      onSetStatus?.(job.id, 'not_interested')
+                    }
+                  }}
+                  className={`sm:transition-opacity p-1 shrink-0 rounded ${
+                    jobStatus === 'not_interested'
+                      ? 'text-slate-500'
+                      : 'sm:opacity-0 sm:group-hover:opacity-100 text-slate-400 hover:text-slate-600'
+                  }`}
+                  aria-label={jobStatus === 'not_interested' ? 'Unmark not interested' : 'Not interested'}
+                  title={jobStatus === 'not_interested' ? 'Unmark not interested' : 'Not interested'}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
+            </div>
           )}
           <span className="text-sm font-medium text-rp-accent whitespace-nowrap">View →</span>
         </div>

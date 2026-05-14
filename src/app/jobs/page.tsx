@@ -408,6 +408,9 @@ function JobsForYouContent({
   hasCv,
   savedJobIds,
   onToggleSave,
+  jobStatuses,
+  onSetStatus,
+  onClearStatus,
 }: {
   jobs: Job[]
   matchScores: Record<string, MatchScoreState>
@@ -417,6 +420,9 @@ function JobsForYouContent({
   hasCv: boolean
   savedJobIds?: Set<string>
   onToggleSave?: (jobId: string, saving: boolean) => void
+  jobStatuses?: Record<string, 'applied' | 'not_interested'>
+  onSetStatus?: (jobId: string, status: 'applied' | 'not_interested') => void
+  onClearStatus?: (jobId: string) => void
 }) {
   if (!hasCv) {
     return (
@@ -443,13 +449,14 @@ function JobsForYouContent({
   const STRONG_THRESHOLD = 70
   const POSSIBLE_THRESHOLD = 50
 
-  const scoredJobs = jobs.filter(j => typeof matchBreakdowns[j.id]?.total === 'number')
+  const visibleJobs = jobs.filter(j => !jobStatuses?.[j.id])
+  const scoredJobs = visibleJobs.filter(j => typeof matchBreakdowns[j.id]?.total === 'number')
   const strongMatches = scoredJobs.filter(j => (matchBreakdowns[j.id]?.total ?? 0) >= STRONG_THRESHOLD)
   const possibleMatches = scoredJobs.filter(j => {
     const total = matchBreakdowns[j.id]?.total ?? 0
     return total >= POSSIBLE_THRESHOLD && total < STRONG_THRESHOLD
   })
-  const topScore = scoredJobs.length > 0 ? (matchBreakdowns[scoredJobs[0].id]?.total ?? 0) : 0
+  const topScore = visibleJobs.length > 0 ? (matchBreakdowns[visibleJobs[0].id]?.total ?? 0) : 0
   const hasAnyAboveThreshold = strongMatches.length > 0 || possibleMatches.length > 0
 
   const renderJobRow = (job: Job) => (
@@ -460,6 +467,9 @@ function JobsForYouContent({
         matchScore={matchBreakdowns[job.id]?.total ?? matchScores[job.id] ?? undefined}
         isSaved={savedJobIds?.has(job.id)}
         onToggleSave={onToggleSave}
+        jobStatus={jobStatuses?.[job.id] ?? null}
+        onSetStatus={onSetStatus}
+        onClearStatus={onClearStatus}
       />
       {matchBreakdowns[job.id] && matchScores[job.id] !== 'loading' && (
         <div className="px-0 pb-2 -mt-2 flex justify-end">
@@ -482,14 +492,14 @@ function JobsForYouContent({
         </a>
       </div>
 
-      {jobs.length === 0 && (
+      {visibleJobs.length === 0 && (
         <div className="text-center py-16">
           <p className="text-slate-500 text-sm mb-4">No scored matches yet — scoring is still running.</p>
           <p className="text-xs text-slate-400">Check back in a moment.</p>
         </div>
       )}
 
-      {jobs.length > 0 && !hasAnyAboveThreshold && (
+      {visibleJobs.length > 0 && !hasAnyAboveThreshold && (
         <div className="text-center py-16 border border-slate-200 rounded-lg bg-slate-50">
           <p className="text-2xl mb-3">🔍</p>
           <h3 className="text-lg font-semibold text-slate-700 mb-2">No strong matches in today&apos;s jobs</h3>
@@ -619,9 +629,9 @@ function JobsList() {
   // gates the tab content render so we don't flash the wrong tab before the
   // CV check returns.
   const urlTab = searchParams.get('tab')
-  const urlTabOverride: 'all' | 'for-you' | 'saved' | null =
-    urlTab === 'all' || urlTab === 'for-you' || urlTab === 'saved' ? urlTab : null
-  const [activeTab, setActiveTab] = useState<'all' | 'for-you' | 'saved'>(urlTabOverride ?? 'all')
+  const urlTabOverride: 'all' | 'for-you' | 'saved' | 'applied' | null =
+    urlTab === 'all' || urlTab === 'for-you' || urlTab === 'saved' || urlTab === 'applied' ? urlTab : null
+  const [activeTab, setActiveTab] = useState<'all' | 'for-you' | 'saved' | 'applied'>(urlTabOverride ?? 'all')
   const [tabResolved, setTabResolved] = useState<boolean>(urlTabOverride !== null)
   const [isSignedIn, setIsSignedIn] = useState<boolean>(false)
   const [cvCheckDone, setCvCheckDone] = useState<boolean>(false)
@@ -638,6 +648,17 @@ function JobsList() {
   const [savedJobs, setSavedJobs] = useState<Job[]>([])
   const [savedLoading, setSavedLoading] = useState(false)
   const savedJobsLoadedRef = useRef(false)
+  const [jobStatuses, setJobStatuses] = useState<Record<string, 'applied' | 'not_interested'>>({})
+  const [appliedJobs, setAppliedJobs] = useState<Job[]>([])
+  const [appliedLoading, setAppliedLoading] = useState(false)
+  const appliedJobsLoadedRef = useRef(false)
+  const [undoState, setUndoState] = useState<{
+    jobId: string
+    jobTitle: string
+    prevStatus: 'applied' | 'not_interested' | null
+    newStatus: 'applied' | 'not_interested'
+    timeoutId: ReturnType<typeof setTimeout>
+  } | null>(null)
 
   const selectedRole = searchParams.get('role')
   const rawFunctionParam = searchParams.get('function')
@@ -714,6 +735,27 @@ function JobsList() {
       .catch(() => {})
   }, [isSignedIn])
 
+  // ROL-158: Load application statuses once signed in
+  useEffect(() => {
+    if (!isSignedIn) return
+    fetch('/api/user-job-status')
+      .then(r => r.ok ? r.json() : { statuses: {} })
+      .then(data => setJobStatuses(data.statuses || {}))
+      .catch(() => {})
+  }, [isSignedIn])
+
+  // ROL-158: Fetch applied jobs when Applied tab first activated
+  useEffect(() => {
+    if (activeTab !== 'applied' || !isSignedIn || appliedJobsLoadedRef.current) return
+    appliedJobsLoadedRef.current = true
+    setAppliedLoading(true)
+    fetch('/api/user-job-status?with_jobs=true&status=applied')
+      .then(r => r.ok ? r.json() : { jobs: [] })
+      .then(data => setAppliedJobs(data.jobs || []))
+      .catch(() => {})
+      .finally(() => setAppliedLoading(false))
+  }, [activeTab, isSignedIn])
+
   // ROL-156: Fetch full saved jobs when Saved tab is activated
   useEffect(() => {
     if (activeTab !== 'saved' || !isSignedIn || savedJobsLoadedRef.current) return
@@ -748,6 +790,79 @@ function JobsList() {
     } catch {
       // silent fail
     }
+  }
+
+  // ROL-158: Set application status with optimistic update + undo toast
+  async function handleSetStatus(jobId: string, status: 'applied' | 'not_interested') {
+    const prevStatus = (jobStatuses[jobId] ?? null) as 'applied' | 'not_interested' | null
+    setJobStatuses(prev => ({ ...prev, [jobId]: status }))
+    if (status === 'applied' && activeTab !== 'applied') {
+      appliedJobsLoadedRef.current = false
+    }
+    if (prevStatus === 'applied' && status !== 'applied') {
+      setAppliedJobs(prev => prev.filter(j => j.id !== jobId))
+    }
+
+    if (undoState?.timeoutId) clearTimeout(undoState.timeoutId)
+    const job = jobs.find(j => j.id === jobId) || forYouJobs.find(j => j.id === jobId) || savedJobs.find(j => j.id === jobId)
+    const timeoutId = setTimeout(() => setUndoState(null), 5000)
+    setUndoState({ jobId, jobTitle: job?.title || 'role', prevStatus, newStatus: status, timeoutId })
+
+    try {
+      await fetch('/api/user-job-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, status }),
+      })
+      track('jobs.application_status_set', { job_id: jobId, status, previous_status: prevStatus })
+    } catch { /* silent */ }
+  }
+
+  // ROL-158: Clear application status
+  async function handleClearStatus(jobId: string) {
+    const prevStatus = (jobStatuses[jobId] ?? null) as 'applied' | 'not_interested' | null
+    setJobStatuses(prev => { const next = { ...prev }; delete next[jobId]; return next })
+    if (prevStatus === 'applied') {
+      setAppliedJobs(prev => prev.filter(j => j.id !== jobId))
+      appliedJobsLoadedRef.current = false
+    }
+    if (undoState?.timeoutId) clearTimeout(undoState.timeoutId)
+    setUndoState(null)
+
+    try {
+      await fetch('/api/user-job-status', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId }),
+      })
+      track('jobs.application_status_set', { job_id: jobId, status: 'cleared', previous_status: prevStatus })
+    } catch { /* silent */ }
+  }
+
+  // ROL-158: Undo last status action
+  async function handleUndo() {
+    if (!undoState) return
+    clearTimeout(undoState.timeoutId)
+    const { jobId, prevStatus, newStatus } = undoState
+    setUndoState(null)
+    setJobStatuses(prev => {
+      const next = { ...prev }
+      if (prevStatus === null) delete next[jobId]
+      else next[jobId] = prevStatus
+      return next
+    })
+    if (newStatus === 'applied') {
+      setAppliedJobs(prev => prev.filter(j => j.id !== jobId))
+      appliedJobsLoadedRef.current = false
+    }
+    try {
+      if (prevStatus === null) {
+        await fetch('/api/user-job-status', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId }) })
+      } else {
+        await fetch('/api/user-job-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId, status: prevStatus }) })
+      }
+      track('jobs.application_status_set', { job_id: jobId, status: prevStatus ?? 'cleared', previous_status: newStatus, via: 'undo' })
+    } catch { /* silent */ }
   }
 
   // ROL-152: Resolve the default tab once we know auth + CV state. The URL
@@ -1333,6 +1448,24 @@ function JobsList() {
   return (
     <>
       <CvReadyToast />
+      {/* ROL-158: Undo toast for application status changes */}
+      {undoState && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white shadow-xl rounded-lg px-4 py-3 flex items-center gap-3 max-w-sm w-auto"
+        >
+          <span className="text-sm whitespace-nowrap">
+            {undoState.newStatus === 'applied' ? '✓ Marked as applied' : '✕ Hidden from browse'}
+          </span>
+          <button
+            onClick={handleUndo}
+            className="text-sm font-semibold text-amber-400 hover:text-amber-300 transition-colors whitespace-nowrap"
+          >
+            Undo
+          </button>
+        </div>
+      )}
       {/* Dark hero section */}
       <div
         className="relative"
@@ -1401,6 +1534,23 @@ function JobsList() {
               )}
             </button>
           )}
+          {isSignedIn && (
+            <button
+              onClick={() => { setActiveTab('applied'); setTabResolved(true) }}
+              className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+                activeTab === 'applied'
+                  ? 'border-rp-accent text-rp-accent'
+                  : 'border-transparent text-rp-text-3 hover:text-rp-text-1'
+              }`}
+            >
+              Applied
+              {Object.values(jobStatuses).filter(s => s === 'applied').length > 0 && (
+                <span className="text-xs bg-rp-accent text-white rounded-full px-1.5 py-0.5 leading-none">
+                  {Object.values(jobStatuses).filter(s => s === 'applied').length}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1409,6 +1559,38 @@ function JobsList() {
            either tab's content area before we know the right default. */
         <div className="max-w-4xl mx-auto px-8 py-8">
           {[...Array(6)].map((_, i) => <JobRowSkeleton key={i} />)}
+        </div>
+      ) : activeTab === 'applied' ? (
+        /* Applied tab — ROL-158 */
+        <div className="max-w-4xl mx-auto px-8 py-8">
+          {appliedLoading ? (
+            [...Array(4)].map((_, i) => <JobRowSkeleton key={i} />)
+          ) : appliedJobs.length === 0 ? (
+            <div className="text-center py-16">
+              <p className="text-2xl mb-3">✓</p>
+              <p className="text-rp-text-2 mb-2">You haven&apos;t marked any roles as applied yet.</p>
+              <p className="text-sm text-rp-text-3">Hover a role card and click the ✓ to mark it as applied.</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-rp-text-3 mb-6">{appliedJobs.length} role{appliedJobs.length !== 1 ? 's' : ''} marked as applied</p>
+              {appliedJobs.map((job: Job) => (
+                <JobRow
+                  key={job.id}
+                  job={job}
+                  companyLogo={job.company_logo ?? undefined}
+                  jobStatus="applied"
+                  onSetStatus={handleSetStatus}
+                  onClearStatus={handleClearStatus}
+                  isSaved={savedJobIds.has(job.id)}
+                  onToggleSave={handleToggleSave}
+                />
+              ))}
+              <p className="text-xs text-rp-text-3 mt-8 text-center">
+                <a href="/account/hidden-jobs" className="hover:underline">View hidden roles →</a>
+              </p>
+            </>
+          )}
         </div>
       ) : activeTab === 'saved' ? (
         /* Saved tab */
@@ -1428,6 +1610,9 @@ function JobsList() {
                 companyLogo={job.company_logo ?? undefined}
                 isSaved={true}
                 onToggleSave={handleToggleSave}
+                jobStatus={jobStatuses[job.id] ?? null}
+                onSetStatus={handleSetStatus}
+                onClearStatus={handleClearStatus}
               />
             ))
           )}
@@ -1444,6 +1629,9 @@ function JobsList() {
             hasCv={hasCv}
             savedJobIds={savedJobIds}
             onToggleSave={handleToggleSave}
+            jobStatuses={jobStatuses}
+            onSetStatus={handleSetStatus}
+            onClearStatus={handleClearStatus}
           />
         </div>
       ) : (
@@ -1646,17 +1834,22 @@ function JobsList() {
                 </a>
               </div>
             ) : (
-              jobs.map((job: Job) => (
-                <JobRow
-                  key={job.id}
-                  job={job}
-                  companyLogo={job.company_logo ?? undefined}
-                  matchScore={matchBreakdowns[job.id]?.total ?? matchScores[job.id] ?? undefined}
-                  onHide={handleHideCompany}
-                  isSaved={savedJobIds.has(job.id)}
-                  onToggleSave={handleToggleSave}
-                />
-              ))
+              jobs
+                .filter(job => !jobStatuses[job.id])
+                .map((job: Job) => (
+                  <JobRow
+                    key={job.id}
+                    job={job}
+                    companyLogo={job.company_logo ?? undefined}
+                    matchScore={matchBreakdowns[job.id]?.total ?? matchScores[job.id] ?? undefined}
+                    onHide={handleHideCompany}
+                    isSaved={savedJobIds.has(job.id)}
+                    onToggleSave={handleToggleSave}
+                    jobStatus={jobStatuses[job.id] ?? null}
+                    onSetStatus={isSignedIn ? handleSetStatus : undefined}
+                    onClearStatus={isSignedIn ? handleClearStatus : undefined}
+                  />
+                ))
             )}
 
             {/* Pagination */}
