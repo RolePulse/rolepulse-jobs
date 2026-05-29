@@ -1288,7 +1288,7 @@ function JobsList() {
 
   // "Jobs For You" tab: fetch all active jobs, score, rank
   useEffect(() => {
-    if (activeTab !== 'for-you' || !hasCv || !cvText || forYouScoringRef.current) return
+    if (activeTab !== 'for-you' || !cvCheckDone || !hasCv || !cvText || forYouScoringRef.current) return
     if (forYouScored) return
 
     async function loadForYou() {
@@ -1430,7 +1430,7 @@ function JobsList() {
 
     loadForYou()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, hasCv, cvText, prefs, selectedFunction])
+  }, [activeTab, cvCheckDone, hasCv, cvText, prefs, selectedFunction])
 
   // Reset JFY cache when the function chip flips so the next render of the
   // For You tab re-fetches with the new filter applied at the DB level.
