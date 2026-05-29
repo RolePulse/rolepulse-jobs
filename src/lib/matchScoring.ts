@@ -117,14 +117,29 @@ export function locationScore(
 
   if (locType === 'hybrid') {
     if (!job.remote && !job.location) return 0
-    if (job.remote) return 80
-    if (job.location && prefs.preferredLocationCity) {
-      const city = prefs.preferredLocationCity.toLowerCase()
-      const jobLoc = job.location.toLowerCase()
-      if (jobLoc.includes(city)) return 100
-      if (jobLoc.includes('hybrid')) return 70
+
+    const city = prefs.preferredLocationCity?.toLowerCase().trim()
+    const jobLoc = job.location?.toLowerCase() ?? ''
+
+    // Hybrid/onsite role located in the user's preferred city is ideal.
+    if (city && jobLoc.includes(city)) return 100
+
+    // Remote roles only work as a hybrid alternative if the user can actually
+    // take them from where they live. A remote role restricted to a different
+    // region (e.g. Sweden-only remote for a New York seeker) is not realistically
+    // takeable, so it must score below the floor cap rather than a blanket 80.
+    if (job.remote) {
+      const userRegion = detectCandidateRegion(prefs.preferredLocationCity, cvText)
+      const jobRegion = detectRegion(job.location)
+      if (jobRegion === 'UNKNOWN' || userRegion === 'UNKNOWN') return 75
+      if (jobRegion === userRegion) return 85
+      if (regionsAdjacent(jobRegion, userRegion)) return 60
+      return 25
     }
-    if (job.location?.toLowerCase().includes('hybrid')) return 70
+
+    // Non-remote role that isn't in the user's city: a hybrid listing elsewhere
+    // is a weak alternative; anything else is a poor fit for a hybrid preference.
+    if (jobLoc.includes('hybrid')) return 70
     return 0
   }
 
