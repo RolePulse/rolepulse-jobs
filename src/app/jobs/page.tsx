@@ -38,6 +38,26 @@ function getSupabase() {
 
 const ROLE_TYPES = ['AE', 'SDR', 'CSM', 'AM', 'RevOps', 'Marketing', 'Growth', 'Sales', 'Partnerships', 'Enablement']
 
+// Match-level filter. Thresholds mirror the badge boundaries in JobRow.tsx so
+// the chip a user picks matches the badge they see on each row.
+type MatchLevel = 'strong' | 'good' | 'partial' | 'weak'
+
+const MATCH_FILTERS: { label: string; value: 'all' | MatchLevel }[] = [
+  { label: 'All matches', value: 'all' },
+  { label: 'Strong', value: 'strong' },
+  { label: 'Good', value: 'good' },
+  { label: 'Partial', value: 'partial' },
+  { label: 'Weak', value: 'weak' },
+]
+
+function scoreToLevel(score: MatchScoreState | undefined): MatchLevel | null {
+  if (typeof score !== 'number') return null
+  if (score >= 80) return 'strong'
+  if (score >= 60) return 'good'
+  if (score >= 40) return 'partial'
+  return 'weak'
+}
+
 function FilterPill({ role, selected }: { role: string; selected: boolean }) {
   const searchParams = useSearchParams()
   const q = searchParams.get('q') || ''
@@ -642,6 +662,7 @@ function JobsList() {
   const [forYouLoading, setForYouLoading] = useState(false)
   const [forYouScored, setForYouScored] = useState(false)
   const [matchBreakdowns, setMatchBreakdowns] = useState<Record<string, MatchBreakdown>>({})
+  const [matchFilter, setMatchFilter] = useState<'all' | MatchLevel>('all')
   const forYouScoringRef = useRef(false)
   const tabResolutionTrackedRef = useRef(false)
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set())
@@ -1445,6 +1466,25 @@ function JobsList() {
   // Dummy reference to avoid TS complaint
   const currentJobs = forYouJobs
 
+  // All Jobs tab list, after hiding applied/not-interested rows and applying
+  // the client-side match-level filter. Match level is computed in-browser from
+  // the user's CV, so it can't be a DB query like the other chips — we filter
+  // the rendered page. Only applied when a CV is loaded (scores exist).
+  const allTabVisibleJobs = jobs.filter(job => !jobStatuses[job.id])
+  const matchFilterActive = Boolean(cvText) && matchFilter !== 'all'
+  // True while at least one visible row's score is still resolving — used to
+  // avoid flashing a false "no matches" empty state before scoring settles.
+  const scoresPending = matchFilterActive && allTabVisibleJobs.some(job => {
+    const total = matchBreakdowns[job.id]?.total
+    const raw = matchScores[job.id]
+    return total === undefined && typeof raw !== 'number'
+  })
+  const displayedJobs = matchFilterActive
+    ? allTabVisibleJobs.filter(
+        job => scoreToLevel(matchBreakdowns[job.id]?.total ?? matchScores[job.id]) === matchFilter
+      )
+    : allTabVisibleJobs
+
   return (
     <>
       <CvReadyToast />
@@ -1716,6 +1756,37 @@ function JobsList() {
             </div>
           </div>
 
+          {/* Match-level filter — only meaningful once a CV is loaded and rows
+              carry match badges. Client-side: filters the current page by the
+              same thresholds the badges use. */}
+          {cvText && (
+            <div className="border-b border-rp-border px-8 py-4">
+              <div className="max-w-4xl mx-auto">
+                <div className="relative after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none md:after:hidden">
+                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide md:flex-wrap items-center">
+                    <span className="text-xs text-slate-400 font-medium whitespace-nowrap mr-1">Match</span>
+                    {MATCH_FILTERS.map((f) => (
+                      <button
+                        key={f.value}
+                        onClick={() => {
+                          setMatchFilter(f.value)
+                          if (f.value !== 'all') track('jobs.match_filter_applied', { level: f.value })
+                        }}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+                          matchFilter === f.value
+                            ? 'bg-rp-accent text-white'
+                            : 'border border-[#E5E7EB] text-slate-600 hover:border-slate-400'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Role filters */}
           <div className="border-b border-rp-border px-8 py-4">
             <div className="max-w-4xl mx-auto">
@@ -1804,12 +1875,29 @@ function JobsList() {
           <div className="max-w-4xl mx-auto px-8 py-8">
             {!loading && (
               <p className="text-sm text-rp-text-3 mb-6">
-                {total.toLocaleString()} open roles{q ? ` matching "${q}"` : ''}
+                {matchFilterActive
+                  ? scoresPending
+                    ? 'Scoring roles…'
+                    : `${displayedJobs.length.toLocaleString()} ${matchFilter} ${displayedJobs.length === 1 ? 'match' : 'matches'} on this page`
+                  : `${total.toLocaleString()} open roles${q ? ` matching "${q}"` : ''}`}
               </p>
             )}
 
             {loading ? (
               [...Array(8)].map((_, i) => <JobRowSkeleton key={i} />)
+            ) : jobs.length > 0 && displayedJobs.length === 0 && matchFilterActive && !scoresPending ? (
+              <div className="text-center py-20">
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">No {matchFilter} matches on this page</h3>
+                <p className="text-slate-500 mb-6">
+                  No roles on this page are a {matchFilter} match for your CV. Try a different match level or browse the next page.
+                </p>
+                <button
+                  onClick={() => setMatchFilter('all')}
+                  className="inline-flex items-center px-4 py-2 rounded-full border border-slate-300 text-sm text-slate-600 hover:border-slate-400 transition-colors"
+                >
+                  ← Show all matches
+                </button>
+              </div>
             ) : jobs.length === 0 ? (
               <div className="text-center py-20">
                 <svg
@@ -1834,8 +1922,7 @@ function JobsList() {
                 </a>
               </div>
             ) : (
-              jobs
-                .filter(job => !jobStatuses[job.id])
+              displayedJobs
                 .map((job: Job) => (
                   <JobRow
                     key={job.id}
