@@ -68,7 +68,7 @@ export function JobRow({ job, companyLogo, matchScore, onHide, isSaved, onToggle
 
   return (
     <Link href={`/jobs/${job.slug}`} className="block cursor-pointer group">
-      <div className="flex items-center justify-between px-0 py-4 border-b border-rp-border hover:bg-[#F9FAFB] transition-colors duration-[120ms] min-h-[72px]">
+      <div className="relative flex items-center justify-between px-0 py-4 border-b border-rp-border hover:bg-[#F9FAFB] transition-colors duration-[120ms] min-h-[72px]">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <CompanyLogo
             src={companyLogo}
@@ -119,88 +119,91 @@ export function JobRow({ job, companyLogo, matchScore, onHide, isSaved, onToggle
               }
             </span>
           )}
-          {job.role_type && (
-            <span className="hidden lg:block text-sm text-rp-text-3">{job.role_type}</span>
-          )}
           {postedLabel && (
             <span className="hidden lg:block text-sm text-rp-text-3 whitespace-nowrap">
               {postedLabel}
             </span>
           )}
-          {onToggleSave && (
-            <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleSave(job.id, !isSaved) }}
-              className="sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity text-slate-400 hover:text-rp-accent p-1 -mr-1 shrink-0"
-              aria-label={isSaved ? 'Unsave role' : 'Save role'}
-              title={isSaved ? 'Unsave role' : 'Save role'}
-            >
-              {isSaved ? (
-                <svg className="w-4 h-4 text-rp-accent" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 21l-7-3.5L5 21V5a2 2 0 012-2h10a2 2 0 012z" />
-                </svg>
-              )}
-            </button>
-          )}
-          {/* Applied / Not interested actions — only for signed-in users (callbacks present) */}
-          {(onSetStatus || onClearStatus) && (
-            <div className="flex items-center gap-1">
-              {/* Applied button */}
+          <span className="text-sm font-medium text-rp-accent whitespace-nowrap">View →</span>
+        </div>
+
+        {/* Hover actions live in an absolute overlay so they never reserve layout width and starve the title.
+            Stays visible when a status is set so the applied / not-interested marker persists. */}
+        {(onToggleSave || onSetStatus || onClearStatus) && (
+          <div
+            className={`absolute inset-y-0 right-0 flex items-center gap-1 pl-10 bg-white group-hover:bg-[#F9FAFB] sm:transition-opacity ${
+              jobStatus ? 'opacity-100' : 'sm:opacity-0 sm:group-hover:opacity-100'
+            }`}
+          >
+            {onToggleSave && (
               <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  if (jobStatus === 'applied') {
-                    onClearStatus?.(job.id)
-                  } else {
-                    onSetStatus?.(job.id, 'applied')
-                  }
-                }}
-                className={`sm:transition-opacity p-1 shrink-0 rounded ${
-                  jobStatus === 'applied'
-                    ? 'text-green-600'
-                    : 'sm:opacity-0 sm:group-hover:opacity-100 text-slate-400 hover:text-green-600'
-                }`}
-                aria-label={jobStatus === 'applied' ? 'Unmark applied' : 'Mark as applied'}
-                title={jobStatus === 'applied' ? 'Unmark applied' : 'Mark as applied'}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleSave(job.id, !isSaved) }}
+                className="text-slate-400 hover:text-rp-accent p-1 shrink-0"
+                aria-label={isSaved ? 'Unsave role' : 'Save role'}
+                title={isSaved ? 'Unsave role' : 'Save role'}
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+                {isSaved ? (
+                  <svg className="w-4 h-4 text-rp-accent" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21l-7-3.5L5 21V5a2 2 0 012-2h10a2 2 0 012 2z" />
+                  </svg>
+                )}
               </button>
-              {/* Not interested button — hidden when job is already applied */}
-              {jobStatus !== 'applied' && (
+            )}
+            {(onSetStatus || onClearStatus) && (
+              <div className="flex items-center gap-1">
+                {/* Applied button */}
                 <button
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
-                    if (jobStatus === 'not_interested') {
+                    if (jobStatus === 'applied') {
                       onClearStatus?.(job.id)
                     } else {
-                      onSetStatus?.(job.id, 'not_interested')
+                      onSetStatus?.(job.id, 'applied')
                     }
                   }}
-                  className={`sm:transition-opacity p-1 shrink-0 rounded ${
-                    jobStatus === 'not_interested'
-                      ? 'text-slate-500'
-                      : 'sm:opacity-0 sm:group-hover:opacity-100 text-slate-400 hover:text-slate-600'
+                  className={`p-1 shrink-0 rounded ${
+                    jobStatus === 'applied' ? 'text-green-600' : 'text-slate-400 hover:text-green-600'
                   }`}
-                  aria-label={jobStatus === 'not_interested' ? 'Unmark not interested' : 'Not interested'}
-                  title={jobStatus === 'not_interested' ? 'Unmark not interested' : 'Not interested'}
+                  aria-label={jobStatus === 'applied' ? 'Unmark applied' : 'Mark as applied'}
+                  title={jobStatus === 'applied' ? 'Unmark applied' : 'Mark as applied'}
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </button>
-              )}
-            </div>
-          )}
-          <span className="text-sm font-medium text-rp-accent whitespace-nowrap">View →</span>
-        </div>
+                {/* Not interested button — hidden when job is already applied */}
+                {jobStatus !== 'applied' && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      if (jobStatus === 'not_interested') {
+                        onClearStatus?.(job.id)
+                      } else {
+                        onSetStatus?.(job.id, 'not_interested')
+                      }
+                    }}
+                    className={`p-1 shrink-0 rounded ${
+                      jobStatus === 'not_interested' ? 'text-slate-500' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                    aria-label={jobStatus === 'not_interested' ? 'Unmark not interested' : 'Not interested'}
+                    title={jobStatus === 'not_interested' ? 'Unmark not interested' : 'Not interested'}
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Link>
   )
