@@ -112,7 +112,7 @@ export function JobRow({ job, companyLogo, matchScore, onHide, isSaved, onToggle
             <MatchBadge score={matchScore} />
           )}
           {(job.location || (job.remote && job.remote_regions?.length > 0)) && (
-            <span className="hidden sm:block text-sm text-rp-text-3 max-w-[200px] truncate">
+            <span className="hidden sm:block text-sm text-rp-text-3 max-w-[160px] truncate">
               {job.remote && job.remote_regions?.length > 0
                 ? `Remote · ${job.remote_regions.slice(0, 2).join(', ')}${job.remote_regions.length > 2 ? '…' : ''}`
                 : truncateLocation(job.location)
@@ -120,10 +120,10 @@ export function JobRow({ job, companyLogo, matchScore, onHide, isSaved, onToggle
             </span>
           )}
           {job.role_type && (
-            <span className="hidden md:block text-sm text-rp-text-3">{job.role_type}</span>
+            <span className="hidden lg:block text-sm text-rp-text-3">{job.role_type}</span>
           )}
           {postedLabel && (
-            <span className="hidden sm:block text-sm text-rp-text-3 whitespace-nowrap">
+            <span className="hidden lg:block text-sm text-rp-text-3 whitespace-nowrap">
               {postedLabel}
             </span>
           )}
