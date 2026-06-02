@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { track } from '@/lib/analytics'
+import { sendNewsletterSponsorshipAlert } from '@/lib/email'
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-03-25.dahlia' })
@@ -41,11 +42,16 @@ export async function POST(req: NextRequest) {
 
     const supabase = getAdminSupabase()
 
+    const tier = (session.metadata?.tier ?? '').toLowerCase()
+    const isNewsletter = tier === 'newsletter'
+    const isFeatured = tier === 'featured' || isNewsletter
+
     // Activate the job
     await supabase
       .from('jobs')
       .update({
         status: 'active',
+        is_featured: isFeatured,
         posted_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       })
@@ -71,11 +77,29 @@ export async function POST(req: NextRequest) {
 
     console.log(`Job ${job_id} activated via Stripe session ${session.id}`)
 
-    const tier = (session.metadata?.tier ?? '').toLowerCase()
-    const newsletterBundle = tier.includes('newsletter')
+    // Newsletter tier: alert James so he can add the role to the Substack.
+    if (isNewsletter) {
+      const { data: job } = await supabase
+        .from('jobs')
+        .select('title, slug, location, remote, companies(name)')
+        .eq('id', job_id)
+        .single()
+      if (job) {
+        const company = Array.isArray(job.companies) ? job.companies[0] : job.companies
+        await sendNewsletterSponsorshipAlert({
+          title: job.title,
+          company: company?.name ?? 'Unknown company',
+          location: job.location ?? null,
+          remote: job.remote ?? false,
+          slug: job.slug,
+          amountPence: session.amount_total || 0,
+        }).catch((err) => console.error('Newsletter alert email failed:', err))
+      }
+    }
+
     await track('rolepulse.employer_posted_job', {
       tier: tier || 'unknown',
-      newsletter_bundle: newsletterBundle,
+      newsletter_bundle: isNewsletter,
     }, { userId: employer_id ?? undefined })
   }
 

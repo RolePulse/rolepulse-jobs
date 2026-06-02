@@ -28,6 +28,32 @@ export async function sendNewApplicationAlert(to: string, candidateName: string,
   })
 }
 
+export async function sendNewsletterSponsorshipAlert(job: {
+  title: string
+  company: string
+  location: string | null
+  remote: boolean
+  slug: string
+  amountPence: number
+}) {
+  // Where to alert James so he can add the role to the Substack. Comma-separated env override supported.
+  const to = (process.env.NEWSLETTER_NOTIFY_EMAIL || 'james@rolepulse.com').split(',').map(s => s.trim())
+  const amount = `$${(job.amountPence / 100).toFixed(0)}`
+  const where = [job.location, job.remote ? 'Remote' : null].filter(Boolean).join(' · ') || '—'
+  return getResend().emails.send({
+    from: getFrom(),
+    to,
+    subject: `Newsletter sponsorship paid: ${job.title} at ${job.company}`,
+    html: `<p>A company just bought the <strong>Newsletter</strong> tier (${amount}). Add this role to the next Substack:</p>
+<ul>
+<li><strong>Role:</strong> ${job.title}</li>
+<li><strong>Company:</strong> ${job.company}</li>
+<li><strong>Location:</strong> ${where}</li>
+<li><strong>Live listing:</strong> <a href="https://rolepulse.com/jobs/${job.slug}">rolepulse.com/jobs/${job.slug}</a></li>
+</ul>`,
+  })
+}
+
 export async function sendJobAlert(to: string, roleType: string, jobs: { title: string; company: string; slug: string }[]) {
   const jobList = jobs.map(j => `<li><a href="https://rolepulse.com/jobs/${j.slug}">${j.title} at ${j.company}</a></li>`).join('')
   return getResend().emails.send({
