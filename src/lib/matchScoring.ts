@@ -234,11 +234,16 @@ const FAMILY_TITLE_PATTERNS: Array<{ family: RoleFamily; patterns: RegExp[] }> =
       /\bmarketing\s+(manager|director|lead|coordinator)/i,
       /\bdemand\s+gen(eration)?\b/i,
       /\bgrowth\s+marketing\b/i,
+      /\bgrowth\s+(lead|manager|director|marketer)\b/i,
+      /\bhead\s+of\s+growth\b/i,
       /\bbrand\s+marketing\b/i,
       /\bcontent\s+marketing\b/i,
       /\bfield\s+marketing\b/i,
       /\bmarketing\s+operations\b/i,
       /\bhead\s+of\s+marketing\b/i,
+      // Leadership titles whose function noun is "marketing" even when other
+      // words sit between (e.g. "Head of Social and Influencer Marketing").
+      /\b(head|director|vp|svp|chief)\s+of\s+[\w\s&/-]*marketing\b/i,
       /\b(cmo|vp\s+marketing)\b/i,
     ],
   },
@@ -262,6 +267,9 @@ const FAMILY_TITLE_PATTERNS: Array<{ family: RoleFamily; patterns: RegExp[] }> =
       /\balliances?\s+(manager|director|lead)/i,
       /\bpartner\s+(manager|director|lead)/i,
       /\becosystem\s+(manager|partnerships?)/i,
+      // Leadership titles ending in "partnerships" (e.g. "Director of
+      // Strategic Partnerships", "Head of Private Equity Partnerships").
+      /\b(head|director|vp|svp|chief)\s+of\s+[\w\s&/-]*partnerships?\b/i,
     ],
   },
   {
@@ -303,6 +311,39 @@ function detectFamilyFromText(text: string | null | undefined): RoleFamily | nul
   return null
 }
 
+// Roles outside the GTM taxonomy that nonetheless share surface keywords with
+// GTM work ("growth", "partnerships", "sales") and leak onto a GTM-focused
+// board. For a candidate with a confident GTM family these are poor matches and
+// must not surface as "Strong" purely on keyword overlap (e.g. a growth marketer
+// matching a "Product Data Scientist - Growth" or "Sales Recruiter" role).
+const NON_GTM_TITLE_PATTERNS: RegExp[] = [
+  /\bdata\s+scien(ce|tist)/i,
+  /\bdata\s+engineer/i,
+  /\bdata\s+analyst/i,
+  /\bmachine\s+learning\b/i,
+  /\b(ml|ai)\s+engineer/i,
+  /\bsoftware\s+(engineer|developer)/i,
+  /\b(front|back)[\s-]?end\s+(engineer|developer)/i,
+  /\bfull[\s-]?stack\b/i,
+  /\bdevops\b/i,
+  /\bproduct\s+manager\b/i,
+  /\bproduct\s+owner\b/i,
+  /\b(technical|tpm)\s+program\s+manager\b/i,
+  /\brecruiter\b/i,
+  /\btalent\s+acquisition\b/i,
+  /\bsourcer\b/i,
+  /\b(financial|finance)\s+analyst\b/i,
+  /\baccountant\b/i,
+  /\bcontroller\b/i,
+  /\bbookkeeper\b/i,
+  /\bdesigner\b/i,
+]
+
+function isNonGtmRole(text: string | null | undefined): boolean {
+  if (!text) return false
+  return NON_GTM_TITLE_PATTERNS.some(p => p.test(text))
+}
+
 // CV-side dominant-family detection via weighted keyword frequency.
 // Picks ONE family — same input always returns the same family.
 const CV_FAMILY_KEYWORDS: Record<RoleFamily, string[]> = {
@@ -328,9 +369,12 @@ const CV_FAMILY_KEYWORDS: Record<RoleFamily, string[]> = {
     'integration consultant', 'go-live', 'system rollout',
   ],
   marketing: [
-    'product marketing', 'demand generation', 'demand gen', 'campaigns',
-    'content marketing', 'brand', 'seo', 'sem', 'marketing automation',
-    'mql', 'lead generation', 'paid social', 'paid search', 'abm',
+    'marketing', 'product marketing', 'growth marketing', 'demand generation',
+    'demand gen', 'growth', 'head of growth', 'campaigns', 'content marketing',
+    'content', 'brand', 'brand awareness', 'seo', 'sem', 'marketing automation',
+    'mql', 'lead generation', 'paid social', 'paid search', 'abm', 'community',
+    'community engagement', 'social media', 'influencer', 'public relations',
+    'user acquisition', 'positioning', 'messaging',
   ],
   revops: [
     'revops', 'revenue operations', 'sales operations', 'salesforce admin',
@@ -446,9 +490,9 @@ function computeMismatchPenalty(
   jobTitle: string | null | undefined,
   cvText: string | null | undefined,
   jobDescription: string | null | undefined,
-): { total: number; family: number } {
+): { total: number; family: number; nonGtm: boolean } {
   const title = (jobTitle || '').toLowerCase()
-  if (!title) return { total: 0, family: 0 }
+  if (!title) return { total: 0, family: 0, nonGtm: false }
 
   let penalty = 0
   const { seniority, languages } = detectCvSignals(cvText)
@@ -478,7 +522,14 @@ function computeMismatchPenalty(
   }
   const cvFamily = detectDominantFamilyFromCV(cvText)
   const family = familyMismatchPenalty(jobFamily, cvFamily)
-  return { total: penalty + family, family }
+
+  // Out-of-scope (non-GTM) role penalty. Only applied when the candidate has a
+  // confident GTM family, so a non-GTM candidate's own-field matches are never
+  // penalised — only GTM specialists are protected from non-GTM noise.
+  const nonGtm = cvFamily !== null && isNonGtmRole(jobTitle)
+  const nonGtmPenalty = nonGtm ? NON_GTM_PENALTY : 0
+
+  return { total: penalty + family + nonGtmPenalty, family, nonGtm }
 }
 
 /**
@@ -492,6 +543,10 @@ function computeMismatchPenalty(
  */
 const LOCATION_FLOOR_CAP = 50
 const FAMILY_FLOOR_CAP = 55
+// Non-GTM roles are demoted hard: a flat penalty plus a cap that keeps them at
+// "Partial" (≥40) at best, never "Strong"/"Good", for a GTM candidate.
+const NON_GTM_PENALTY = 45
+const NON_GTM_FLOOR_CAP = 45
 
 export function compositeScore(
   cvScore: number | null,
@@ -505,10 +560,11 @@ export function compositeScore(
 ): number {
   const cv = cvScore ?? 50
   const base = Math.round(cv * 0.75 + locScore * 0.15 + salScore * 0.10)
-  const { total: penalty, family } = computeMismatchPenalty(options?.jobTitle, options?.cvText, options?.jobDescription)
+  const { total: penalty, family, nonGtm } = computeMismatchPenalty(options?.jobTitle, options?.cvText, options?.jobDescription)
   const ceiling = cv + 10
   let composite = Math.max(0, Math.min(ceiling, base - penalty))
   if (locScore < 50) composite = Math.min(composite, LOCATION_FLOOR_CAP)
   if (family >= 20) composite = Math.min(composite, FAMILY_FLOOR_CAP)
+  if (nonGtm) composite = Math.min(composite, NON_GTM_FLOOR_CAP)
   return composite
 }
