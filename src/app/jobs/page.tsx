@@ -323,6 +323,7 @@ interface Job {
   remote_regions: string[] | null
   role_type: string | null
   posted_at: string
+  is_featured?: boolean
   company_name: string
   company_logo: string | null
   description: string | null
@@ -1085,8 +1086,9 @@ function JobsList() {
 
       let query = supabase
         .from('jobs')
-        .select('id, title, slug, location, remote, role_type, posted_at, description, salary_min, salary_max, salary_currency, salary_is_ote, companies(name, logo_url, domain)', { count: 'exact' })
+        .select('id, title, slug, location, remote, role_type, posted_at, is_featured, description, salary_min, salary_max, salary_currency, salary_is_ote, companies(name, logo_url, domain)', { count: 'exact' })
         .eq('status', 'active')
+        .order('is_featured', { ascending: false })
         .order('posted_at', { ascending: false })
         .range(from, to)
 
@@ -1207,7 +1209,12 @@ function JobsList() {
         ? dedupedJobs.filter(job => !allExcluded.includes(job.company_name))
         : dedupedJobs
 
-      const finalJobs = diversify(visibleJobs)
+      const diversified = diversify(visibleJobs)
+      // Keep paid Featured listings pinned above the recency feed (diversify may otherwise reshuffle them).
+      const finalJobs = [
+        ...diversified.filter(j => j.is_featured),
+        ...diversified.filter(j => !j.is_featured),
+      ]
       setJobs(finalJobs)
       setLoading(false)
 
@@ -1321,7 +1328,7 @@ function JobsList() {
         const supabase = getSupabase()
         let jfyQuery = supabase
           .from('jobs')
-          .select('id, title, slug, location, remote, role_type, posted_at, description, companies(name, logo_url, domain)')
+          .select('id, title, slug, location, remote, role_type, posted_at, is_featured, description, companies(name, logo_url, domain)')
           .eq('status', 'active')
           .order('posted_at', { ascending: false })
           .limit(200)

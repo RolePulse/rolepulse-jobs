@@ -78,7 +78,14 @@ export function JobRow({ job, companyLogo, matchScore, onHide, isSaved, onToggle
             useHashColour
           />
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold text-rp-text-1 truncate">{job.title}</h3>
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className="text-base font-semibold text-rp-text-1 truncate">{job.title}</h3>
+              {job.is_featured && (
+                <span className="inline-flex items-center text-[11px] leading-none px-1.5 py-0.5 rounded-full border border-amber-200 text-amber-700 bg-amber-50 font-medium whitespace-nowrap flex-shrink-0">
+                  Featured
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-0.5">
                 <p className="text-sm text-rp-text-2">{job.company_name}</p>
