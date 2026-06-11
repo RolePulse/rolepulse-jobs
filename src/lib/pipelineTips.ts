@@ -1,6 +1,5 @@
 import { getFollowUpTemplate, type FollowUpTemplate } from './followUpTemplates'
-
-type Stage = 'saved' | 'applied' | 'first_call' | 'interviewing' | 'offer' | 'closed'
+import type { StageKind } from './pipelineStages'
 
 export interface Tip {
   icon: string
@@ -11,7 +10,7 @@ export interface Tip {
 }
 
 export interface TipContext {
-  stage: Stage
+  kind: StageKind
   stageDetail?: string | null
   matchScore?: number | null
   daysSinceCreated: number
@@ -244,14 +243,46 @@ function closedTips(ctx: TipContext): Tip[] {
   }]
 }
 
+function genericTips(ctx: TipContext): Tip[] {
+  const tips: Tip[] = []
+
+  if (ctx.followUpOverdue) {
+    tips.push({
+      icon: '⚠️',
+      title: 'Follow-up is overdue',
+      body: 'You set a follow-up reminder that\'s now past due. Take action today or update the date.',
+      priority: 'high',
+    })
+  }
+
+  if (ctx.daysSinceStageChange >= 7 && !ctx.hasFollowUp) {
+    tips.push({
+      icon: '⏰',
+      title: 'Keep this moving',
+      body: 'It\'s been ' + ctx.daysSinceStageChange + ' days at this stage with no follow-up set. Decide your next action and set a reminder so it doesn\'t go cold.',
+      priority: 'medium',
+    })
+  }
+
+  tips.push({
+    icon: '📝',
+    title: 'Log what happened',
+    body: 'Add a note capturing where this stands and what comes next. A clear record turns this stage into prep for the one after it.',
+    priority: 'low',
+  })
+
+  return tips
+}
+
 export function getTipsForStage(ctx: TipContext): Tip[] {
-  switch (ctx.stage) {
-    case 'saved': return savedTips(ctx)
+  switch (ctx.kind) {
+    case 'open': return savedTips(ctx)
     case 'applied': return appliedTips(ctx)
-    case 'first_call': return firstCallTips(ctx)
-    case 'interviewing': return interviewingTips(ctx)
+    case 'screening': return firstCallTips(ctx)
+    case 'interview': return interviewingTips(ctx)
     case 'offer': return offerTips(ctx)
     case 'closed': return closedTips(ctx)
-    default: return []
+    case 'custom': return genericTips(ctx)
+    default: return genericTips(ctx)
   }
 }

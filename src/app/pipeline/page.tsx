@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo, createContext, useContext } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CompanyLogo } from '@/components/CompanyLogo'
@@ -8,6 +8,14 @@ import { getTipsForStage } from '@/lib/pipelineTips'
 import type { Tip } from '@/lib/pipelineTips'
 import type { PrepBrief } from '@/lib/interviewPrepBrief'
 import { getNegotiationTips } from '@/lib/negotiationTips'
+import {
+  DEFAULT_STAGES,
+  STAGE_COLOUR_TOKENS,
+  STAGE_KINDS,
+  newStageId,
+  type StageConfig,
+  type StageKind,
+} from '@/lib/pipelineStages'
 
 // ── Follow-Up Template Block ──────────────────────────────────────────
 function FollowUpTemplateBlock({ label, text }: { label: string; text: string }) {
@@ -150,7 +158,7 @@ function BenchmarkPanel({ offerBase, jobTitle }: { offerBase: number; jobTitle: 
 }
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type Stage = 'saved' | 'applied' | 'first_call' | 'interviewing' | 'offer' | 'closed'
+type Stage = string
 type Source = 'rolepulse' | 'linkedin' | 'referral' | 'other'
 
 interface CvAnalysis {
@@ -210,17 +218,43 @@ interface Application {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const STAGES: { key: Stage; label: string; colour: string }[] = [
-  { key: 'saved',        label: 'Saved',       colour: 'bg-zinc-500' },
-  { key: 'applied',      label: 'Applied',     colour: 'bg-blue-500' },
-  { key: 'first_call',   label: 'First Call',  colour: 'bg-indigo-500' },
-  { key: 'interviewing', label: 'Interviewing',colour: 'bg-purple-500' },
-  { key: 'offer',        label: 'Offer',       colour: 'bg-green-500' },
-  { key: 'closed',       label: 'Closed',      colour: 'bg-zinc-400' },
-]
+// Colour token → Tailwind class. Class strings are listed literally so Tailwind's
+// JIT keeps them; never build `bg-${token}-500` dynamically.
+const STAGE_COLOURS: Record<string, string> = {
+  zinc:   'bg-zinc-500',
+  blue:   'bg-blue-500',
+  indigo: 'bg-indigo-500',
+  purple: 'bg-purple-500',
+  green:  'bg-green-500',
+  teal:   'bg-teal-500',
+  amber:  'bg-amber-500',
+  orange: 'bg-orange-500',
+  red:    'bg-red-500',
+  pink:   'bg-pink-500',
+}
+function stageColourClass(token: string): string {
+  return STAGE_COLOURS[token] ?? 'bg-zinc-500'
+}
 
-const STAGE_DETAILS: Record<string, string[]> = {
-  closed: ['Accepted', 'Rejected', 'Ghosted', 'Withdrew'],
+const CLOSED_OUTCOMES = ['Accepted', 'Rejected', 'Ghosted', 'Withdrew']
+
+// ── Stages context ────────────────────────────────────────────────────────────
+// The board's columns are user-configured, so every component reads the live
+// stage list (and kind/label lookups) from context rather than a fixed const.
+interface StagesCtxValue {
+  stages: StageConfig[]
+  byId: (id: string) => StageConfig | undefined
+  kindOf: (id: string) => StageKind
+  labelOf: (id: string) => string
+}
+const StagesContext = createContext<StagesCtxValue>({
+  stages: DEFAULT_STAGES,
+  byId: () => undefined,
+  kindOf: () => 'custom',
+  labelOf: (id) => id,
+})
+function useStages() {
+  return useContext(StagesContext)
 }
 
 const SOURCE_LABELS: Record<Source, string> = {
@@ -267,6 +301,7 @@ function AddModal({
   onClose: () => void
   onCreated: (app: Application) => void
 }) {
+  const { stages } = useStages()
   const [step, setStep] = useState<AddStep>('pick')
   const [jobUrl, setJobUrl] = useState('')
   const [fetchErr, setFetchErr] = useState('')
@@ -372,7 +407,7 @@ function AddModal({
           <label className="block text-sm font-medium text-rp-text-2 mb-1">Stage</label>
           <select className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
             value={stage} onChange={e => setStage(e.target.value as Stage)}>
-            {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            {stages.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </div>
         <div>
@@ -806,6 +841,7 @@ function CardDetailModal({
   onUpdated: (a: Application) => void
   onDeleted: (id: string) => void
 }) {
+  const { stages, kindOf, labelOf } = useStages()
   const [tab, setTab] = useState<'overview' | 'tips' | 'notes' | 'contacts' | 'timeline'>('overview')
   const [hasCv, setHasCv] = useState(false)
 
@@ -936,10 +972,10 @@ function CardDetailModal({
                     className="w-full border border-rp-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-rp-accent"
                     value={stage} onChange={e => setStage(e.target.value as Stage)}
                   >
-                    {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                    {stages.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                   </select>
                 </div>
-                {stage === 'closed' && (
+                {kindOf(stage) === 'closed' && (
                   <div>
                     <label className="block text-xs font-medium text-rp-text-3 mb-1 uppercase tracking-wide">Outcome</label>
                     <select
@@ -947,7 +983,7 @@ function CardDetailModal({
                       value={stageDetail} onChange={e => setStageDetail(e.target.value)}
                     >
                       <option value="">Select…</option>
-                      {STAGE_DETAILS.closed.map(d => <option key={d} value={d.toLowerCase()}>{d}</option>)}
+                      {CLOSED_OUTCOMES.map(d => <option key={d} value={d.toLowerCase()}>{d}</option>)}
                     </select>
                   </div>
                 )}
@@ -973,7 +1009,7 @@ function CardDetailModal({
                   placeholder="e.g. Chase recruiter"
                 />
               </div>
-              {stage === 'offer' && (
+              {kindOf(stage) === 'offer' && (
                 <div className="rounded-xl border border-green-200 bg-green-50/50 p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <span className="text-base">💰</span>
@@ -1044,7 +1080,7 @@ function CardDetailModal({
             const daysSinceCreated = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24))
             const daysSinceStageChange = Math.floor((now.getTime() - updated.getTime()) / (1000 * 60 * 60 * 24))
             const tips = getTipsForStage({
-              stage: app.stage,
+              kind: kindOf(app.stage),
               stageDetail: app.stage_detail,
               matchScore: app.match_score,
               daysSinceCreated,
@@ -1058,7 +1094,7 @@ function CardDetailModal({
             })
             return (
               <div className="space-y-3">
-                {app.stage === 'saved' && (
+                {kindOf(app.stage) === 'open' && (
                   <CvGapAnalysisPanel
                     app={app}
                     onScored={(analysis) => {
@@ -1067,7 +1103,7 @@ function CardDetailModal({
                     }}
                   />
                 )}
-                {(app.stage === 'first_call' || app.stage === 'interviewing') && (
+                {(kindOf(app.stage) === 'screening' || kindOf(app.stage) === 'interview') && (
                   <InterviewPrepPanel app={app} />
                 )}
                 {tips.map((tip: Tip, i: number) => (
@@ -1322,10 +1358,7 @@ function CardDetailModal({
                 {timeline.length > 0 && <div className="absolute left-[15px] top-3 bottom-3 w-px bg-rp-border" />}
                 <div className="space-y-3">
                   {[...timeline].reverse().map((evt, i) => {
-                    const stageLabel = (s: string) => {
-                      const found = STAGES.find(st => st.key === s)
-                      return found ? found.label : s
-                    }
+                    const stageLabel = (s: string) => labelOf(s)
                     let icon = '\u25CB'
                     let text = ''
                     switch (evt.type) {
@@ -1446,7 +1479,7 @@ function KanbanColumn({
   onToggleSelect,
   onSelectAll,
 }: {
-  stage: { key: Stage; label: string; colour: string }
+  stage: StageConfig
   apps: Application[]
   onCardClick: (app: Application) => void
   onDragStart: (e: React.DragEvent, id: string, fromStage: Stage) => void
@@ -1465,12 +1498,12 @@ function KanbanColumn({
       className={`flex flex-col min-w-[220px] w-[220px] flex-shrink-0 rounded-2xl transition-colors ${isDragOver ? 'bg-orange-50/60' : 'bg-rp-bg'}`}
       onDragOver={e => { e.preventDefault(); setIsDragOver(true); onDragOver(e) }}
       onDragLeave={() => setIsDragOver(false)}
-      onDrop={e => { setIsDragOver(false); onDrop(e, stage.key) }}
+      onDrop={e => { setIsDragOver(false); onDrop(e, stage.id) }}
     >
       <div className="px-3 pt-3 pb-2 flex items-center gap-2">
         {selectMode && apps.length > 0 && (
           <button
-            onClick={() => onSelectAll?.(stage.key)}
+            onClick={() => onSelectAll?.(stage.id)}
             className={`w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
               apps.length > 0 && apps.every(a => selectedIds?.has(a.id)) ? 'bg-rp-accent border-rp-accent' : 'border-rp-border hover:border-rp-accent/60'
             }`}
@@ -1478,7 +1511,7 @@ function KanbanColumn({
             {apps.length > 0 && apps.every(a => selectedIds?.has(a.id)) && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
           </button>
         )}
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stage.colour}`} />
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stageColourClass(stage.colour)}`} />
         <span className="text-xs font-semibold text-rp-text-2 uppercase tracking-wide">{stage.label}</span>
         <span className="ml-auto text-xs text-rp-text-3 font-medium">{apps.length}</span>
       </div>
@@ -1495,7 +1528,7 @@ function KanbanColumn({
           />
         ))}
         <button
-          onClick={() => onAddClick(stage.key)}
+          onClick={() => onAddClick(stage.id)}
           className="mt-1 w-full py-2 rounded-xl border border-dashed border-rp-border text-xs text-rp-text-3 hover:border-rp-accent/60 hover:text-rp-accent transition-colors"
         >
           + Add
@@ -1522,13 +1555,14 @@ function MobileSwipeCard({
   selected?: boolean
   onToggleSelect?: (id: string) => void
 }) {
+  const { stages, byId } = useStages()
   const touchRef = useRef<{ startX: number; startY: number; swiping: boolean }>({ startX: 0, startY: 0, swiping: false })
   const [swipeX, setSwipeX] = useState(0)
   const overdue = isOverdue(app.follow_up_date)
   const duration = stageDurationBadge(app.updated_at)
-  const stageIdx = STAGES.findIndex(s => s.key === app.stage)
-  const prevStage = stageIdx > 0 ? STAGES[stageIdx - 1] : null
-  const nextStage = stageIdx < STAGES.length - 1 ? STAGES[stageIdx + 1] : null
+  const stageIdx = stages.findIndex(s => s.id === app.stage)
+  const prevStage = stageIdx > 0 ? stages[stageIdx - 1] : null
+  const nextStage = stageIdx >= 0 && stageIdx < stages.length - 1 ? stages[stageIdx + 1] : null
 
   function handleTouchStart(e: React.TouchEvent) {
     if (selectMode) return
@@ -1551,8 +1585,8 @@ function MobileSwipeCard({
   function handleTouchEnd() {
     if (selectMode) return
     if (Math.abs(swipeX) > 60) {
-      if (swipeX > 0 && prevStage) onStageChange(app.id, prevStage.key)
-      else if (swipeX < 0 && nextStage) onStageChange(app.id, nextStage.key)
+      if (swipeX > 0 && prevStage) onStageChange(app.id, prevStage.id)
+      else if (swipeX < 0 && nextStage) onStageChange(app.id, nextStage.id)
     }
     setSwipeX(0)
     touchRef.current.swiping = false
@@ -1597,8 +1631,8 @@ function MobileSwipeCard({
           </div>
         </div>
         <div className="mt-3 flex items-center gap-2 flex-wrap">
-          <span className={`text-xs font-medium px-2 py-1 rounded-full ${STAGES.find(s => s.key === app.stage)?.colour ?? 'bg-zinc-500'} text-white`}>
-            {STAGES.find(s => s.key === app.stage)?.label ?? app.stage}
+          <span className={`text-xs font-medium px-2 py-1 rounded-full ${stageColourClass(byId(app.stage)?.colour ?? 'zinc')} text-white`}>
+            {byId(app.stage)?.label ?? app.stage}
           </span>
           <span className={`text-xs font-medium px-2 py-1 rounded-full ${duration.colour}`}>{duration.label}</span>
           {app.match_score != null && (
@@ -1631,7 +1665,8 @@ function ListView({
   selectedIds?: Set<string>
   onToggleSelect?: (id: string) => void
 }) {
-  const stageMap = Object.fromEntries(STAGES.map(s => [s.key, s.label]))
+  const { stages } = useStages()
+  const stageMap = Object.fromEntries(stages.map(s => [s.id, s.label]))
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
 
   if (isMobile) {
@@ -1723,6 +1758,313 @@ function ListView({
   )
 }
 
+// ── Needs Attention strip ─────────────────────────────────────────────────────
+// Promotes already-computed signals to the top of the board so it acts as a
+// co-pilot. One chip per card, highest-urgency signal wins; closed cards excluded.
+
+interface AttentionItem {
+  app: Application
+  priority: number
+  icon: string
+  text: string
+  tone: string
+}
+
+function NeedsAttentionStrip({ apps, kindOf, onOpen }: {
+  apps: Application[]
+  kindOf: (id: string) => StageKind
+  onOpen: (app: Application) => void
+}) {
+  const items: AttentionItem[] = []
+  for (const app of apps) {
+    const kind = kindOf(app.stage)
+    if (kind === 'closed') continue
+    if (isOverdue(app.follow_up_date)) {
+      items.push({ app, priority: 0, icon: '⚠️', text: `Follow up with ${app.company_name}`, tone: 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100' })
+    } else if (kind === 'offer') {
+      items.push({ app, priority: 1, icon: '🎉', text: `Decide on ${app.company_name} offer`, tone: 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100' })
+    } else if (daysInStage(app.updated_at) > 14) {
+      items.push({ app, priority: 2, icon: '🕒', text: `${app.company_name} stalled ${daysInStage(app.updated_at)}d`, tone: 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' })
+    } else if (kind === 'open' && app.match_score != null && app.match_score < 70) {
+      items.push({ app, priority: 3, icon: '🎯', text: `Boost ${app.company_name} match (${app.match_score}%)`, tone: 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100' })
+    }
+  }
+
+  if (items.length === 0) return null
+
+  items.sort((a, b) => a.priority - b.priority)
+  const shown = items.slice(0, 8)
+  const extra = items.length - shown.length
+
+  return (
+    <div className="px-4 md:px-6 pt-4">
+      <div className="rounded-xl border border-rp-border bg-white p-3">
+        <div className="flex items-center gap-2 mb-2.5">
+          <span className="text-sm">👋</span>
+          <p className="text-xs font-semibold text-rp-text-2 uppercase tracking-wide">Needs attention</p>
+          <span className="text-xs text-rp-text-3">· {items.length}</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {shown.map(item => (
+            <button
+              key={item.app.id}
+              onClick={() => onOpen(item.app)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-xs font-medium transition-colors ${item.tone}`}
+            >
+              <span>{item.icon}</span>
+              <span>{item.text}</span>
+            </button>
+          ))}
+          {extra > 0 && (
+            <span className="flex items-center px-2.5 py-1.5 text-xs font-medium text-rp-text-3">+{extra} more</span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Stage Manager Modal ───────────────────────────────────────────────────────
+// Per-user editor for the kanban columns. `kind` stays editable so the intelligence
+// layer (tips / CV gap / prep / offer panel) keeps working under a renamed column.
+// Deleting a column that still holds cards forces a move target first.
+
+const KIND_LABELS: Record<StageKind, string> = {
+  open: 'Pre-application',
+  applied: 'Applied',
+  screening: 'Screening / first call',
+  interview: 'Interview',
+  offer: 'Offer',
+  closed: 'Closed / terminal',
+  custom: 'Custom (generic tips)',
+}
+
+function StageManagerModal({ stages, apps, onClose, onSaved }: {
+  stages: StageConfig[]
+  apps: Application[]
+  onClose: () => void
+  onSaved: (next: StageConfig[], movedApps: Application[]) => void
+}) {
+  const [list, setList] = useState<StageConfig[]>(() => stages.map(s => ({ ...s })))
+  const [reassign, setReassign] = useState<Record<string, string>>({})
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const a of apps) c[a.stage] = (c[a.stage] ?? 0) + 1
+    return c
+  }, [apps])
+
+  // A stage "holds cards" if it has its own applications OR is the move target of
+  // another stage queued for deletion — both must be reassigned before removal.
+  const willHoldCards = (id: string) =>
+    (counts[id] ?? 0) > 0 || Object.values(reassign).includes(id)
+
+  function update(id: string, patch: Partial<StageConfig>) {
+    setList(prev => prev.map(s => (s.id === id ? { ...s, ...patch } : s)))
+  }
+  function move(idx: number, dir: -1 | 1) {
+    setList(prev => {
+      const j = idx + dir
+      if (j < 0 || j >= prev.length) return prev
+      const next = [...prev]
+      ;[next[idx], next[j]] = [next[j], next[idx]]
+      return next
+    })
+  }
+  function addStage() {
+    setList(prev => [...prev, { id: newStageId(), label: 'New stage', colour: 'teal', kind: 'custom' }])
+  }
+  function startRemove(id: string) {
+    if (list.length <= 1) return
+    if (willHoldCards(id)) {
+      setPendingDelete(id)
+      setDeleteTarget(list.find(s => s.id !== id)?.id ?? '')
+      return
+    }
+    setList(prev => prev.filter(s => s.id !== id))
+  }
+  function confirmDelete() {
+    if (!pendingDelete || !deleteTarget) return
+    const id = pendingDelete
+    const t = deleteTarget
+    // Re-point any chain that targeted this stage so move targets stay final.
+    setReassign(prev => {
+      const next: Record<string, string> = {}
+      for (const [k, v] of Object.entries(prev)) next[k] = v === id ? t : v
+      next[id] = t
+      return next
+    })
+    setList(prev => prev.filter(s => s.id !== id))
+    setPendingDelete(null)
+    setDeleteTarget('')
+  }
+
+  async function moveCards(from: string, to: string): Promise<Application[]> {
+    const ids = apps.filter(a => a.stage === from).map(a => a.id)
+    if (ids.length === 0) return []
+    const res = await fetch('/api/pipeline/bulk', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, stage: to }),
+    })
+    if (!res.ok) throw new Error('move failed')
+    const json = await res.json()
+    return (json.applications ?? []) as Application[]
+  }
+
+  async function handleSave() {
+    if (list.some(s => !s.label.trim())) { setError('Every stage needs a name.'); return }
+    setSaving(true)
+    setError('')
+    try {
+      const movedApps: Application[] = []
+      for (const [from, to] of Object.entries(reassign)) {
+        movedApps.push(...await moveCards(from, to))
+      }
+      const res = await fetch('/api/pipeline/stages', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stages: list }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({} as Record<string, unknown>))
+        setError(
+          res.status === 409
+            ? 'Some stages still have applications — move them before removing.'
+            : (typeof json.error === 'string' ? json.error : 'Could not save stages.')
+        )
+        setSaving(false)
+        return
+      }
+      const json = await res.json()
+      onSaved(json.stages as StageConfig[], movedApps)
+      onClose()
+    } catch {
+      setError('Something went wrong saving your stages.')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between px-5 py-4 border-b border-rp-border">
+          <div>
+            <h2 className="text-base font-semibold text-rp-text-1">Manage stages</h2>
+            <p className="text-xs text-rp-text-3 mt-0.5">Rename, recolour, reorder, add or remove your pipeline columns.</p>
+          </div>
+          <button onClick={onClose} className="text-rp-text-3 hover:text-rp-text-1 transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          {list.map((s, i) => (
+            <div key={s.id} className="rounded-xl border border-rp-border p-3">
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col">
+                  <button onClick={() => move(i, -1)} disabled={i === 0} className="text-rp-text-3 hover:text-rp-text-1 disabled:opacity-30 transition-colors">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg>
+                  </button>
+                  <button onClick={() => move(i, 1)} disabled={i === list.length - 1} className="text-rp-text-3 hover:text-rp-text-1 disabled:opacity-30 transition-colors">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                </div>
+                <span className={`w-3 h-3 rounded-full flex-shrink-0 ${stageColourClass(s.colour)}`} />
+                <input
+                  value={s.label}
+                  onChange={e => update(s.id, { label: e.target.value })}
+                  maxLength={40}
+                  placeholder="Stage name"
+                  className="flex-1 min-w-0 text-sm font-medium text-rp-text-1 bg-transparent border-b border-transparent focus:border-rp-border outline-none py-0.5"
+                />
+                {(counts[s.id] ?? 0) > 0 && (
+                  <span className="text-xs text-rp-text-3 flex-shrink-0">{counts[s.id]} card{counts[s.id] === 1 ? '' : 's'}</span>
+                )}
+                <button
+                  onClick={() => startRemove(s.id)}
+                  disabled={list.length <= 1}
+                  className="text-rp-text-3 hover:text-red-500 disabled:opacity-30 transition-colors flex-shrink-0"
+                  title={list.length <= 1 ? 'Keep at least one stage' : 'Remove stage'}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 mt-2.5 pl-6">
+                <div className="flex items-center gap-1.5">
+                  {STAGE_COLOUR_TOKENS.map(token => (
+                    <button
+                      key={token}
+                      onClick={() => update(s.id, { colour: token })}
+                      className={`w-4 h-4 rounded-full ${stageColourClass(token)} transition-transform ${s.colour === token ? 'ring-2 ring-offset-1 ring-rp-text-2 scale-110' : 'hover:scale-110'}`}
+                      title={token}
+                    />
+                  ))}
+                </div>
+                <select
+                  value={s.kind}
+                  onChange={e => update(s.id, { kind: e.target.value as StageKind })}
+                  className="text-xs text-rp-text-2 bg-rp-bg border border-rp-border rounded-md px-2 py-1 outline-none"
+                  title="Which smart tips this column shows"
+                >
+                  {STAGE_KINDS.map(k => (
+                    <option key={k} value={k}>{KIND_LABELS[k]}</option>
+                  ))}
+                </select>
+              </div>
+
+              {pendingDelete === s.id && (
+                <div className="mt-3 ml-6 rounded-lg bg-amber-50 border border-amber-200 p-3">
+                  <p className="text-xs text-amber-800 mb-2">
+                    “{s.label}” has {counts[s.id] ?? 0} application{(counts[s.id] ?? 0) === 1 ? '' : 's'}. Move them to:
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={deleteTarget}
+                      onChange={e => setDeleteTarget(e.target.value)}
+                      className="flex-1 min-w-0 text-xs text-rp-text-1 bg-white border border-rp-border rounded-md px-2 py-1.5 outline-none"
+                    >
+                      {list.filter(o => o.id !== s.id).map(o => (
+                        <option key={o.id} value={o.id}>{o.label}</option>
+                      ))}
+                    </select>
+                    <button onClick={confirmDelete} className="text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded-md px-3 py-1.5 transition-colors flex-shrink-0">Move &amp; remove</button>
+                    <button onClick={() => { setPendingDelete(null); setDeleteTarget('') }} className="text-xs font-medium text-rp-text-2 hover:text-rp-text-1 px-2 py-1.5 flex-shrink-0">Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {list.length < 12 && (
+            <button onClick={addStage} className="w-full rounded-xl border border-dashed border-rp-border text-sm text-rp-text-2 hover:text-rp-text-1 hover:border-rp-text-3 py-2.5 transition-colors">
+              + Add stage
+            </button>
+          )}
+        </div>
+
+        <div className="px-5 py-4 border-t border-rp-border">
+          {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
+          <div className="flex items-center justify-end gap-2">
+            <button onClick={onClose} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-medium text-rp-text-2 hover:text-rp-text-1 transition-colors disabled:opacity-50">Cancel</button>
+            <button onClick={handleSave} disabled={saving || pendingDelete !== null} className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-rp-accent hover:bg-rp-accent-dk transition-colors disabled:opacity-50">
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PipelinePage() {
@@ -1736,7 +2078,22 @@ export default function PipelinePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkConfirm, setBulkConfirm] = useState<{ action: 'archive' | 'stage'; stage?: Stage } | null>(null)
   const [bulkSaving, setBulkSaving] = useState(false)
+  const [stages, setStages] = useState<StageConfig[]>(DEFAULT_STAGES)
+  const [manageOpen, setManageOpen] = useState(false)
   const dragRef = useRef<{ id: string; fromStage: Stage } | null>(null)
+
+  const stagesCtx = useMemo<StagesCtxValue>(() => {
+    const map = new Map(stages.map(s => [s.id, s]))
+    return {
+      stages,
+      byId: (id) => map.get(id),
+      kindOf: (id) => map.get(id)?.kind ?? 'custom',
+      labelOf: (id) => map.get(id)?.label ?? id,
+    }
+  }, [stages])
+  const kindOf = stagesCtx.kindOf
+  const firstStageId = stages[0]?.id ?? 'saved'
+  const closedStage = stages.find(s => s.kind === 'closed')
 
   // Mobile: auto-switch to list
   useEffect(() => {
@@ -1752,10 +2109,17 @@ export default function PipelinePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/sign-in?redirect=/pipeline'); return }
 
-      const res = await fetch('/api/pipeline')
-      if (res.ok) {
-        const json = await res.json()
+      const [appsRes, stagesRes] = await Promise.all([
+        fetch('/api/pipeline'),
+        fetch('/api/pipeline/stages'),
+      ])
+      if (appsRes.ok) {
+        const json = await appsRes.json()
         setApps(json.applications)
+      }
+      if (stagesRes.ok) {
+        const json = await stagesRes.json()
+        if (Array.isArray(json.stages) && json.stages.length > 0) setStages(json.stages)
       }
       setLoading(false)
     }
@@ -1857,15 +2221,16 @@ export default function PipelinePage() {
   }
 
   // Summary stats
-  const active = apps.filter(a => a.stage !== 'closed').length
-  const interviews = apps.filter(a => a.stage === 'interviewing').length
-  const offers = apps.filter(a => a.stage === 'offer').length
+  const activeApps = apps.filter(a => kindOf(a.stage) !== 'closed')
+  const active = activeApps.length
+  const interviews = apps.filter(a => kindOf(a.stage) === 'interview').length
+  const offers = apps.filter(a => kindOf(a.stage) === 'offer').length
   const scored = apps.filter(a => a.match_score != null)
   const avgScore = scored.length > 0 ? Math.round(scored.reduce((s, a) => s + (a.match_score ?? 0), 0) / scored.length) : null
-  const activeApps = apps.filter(a => a.stage !== 'closed')
   const avgDays = activeApps.length > 0 ? Math.round(activeApps.reduce((s, a) => s + daysInStage(a.updated_at), 0) / activeApps.length) : null
 
   return (
+    <StagesContext.Provider value={stagesCtx}>
     <div className="min-h-screen bg-rp-bg">
       {/* Header */}
       <div className="bg-rp-black border-b border-white/10">
@@ -1906,8 +2271,17 @@ export default function PipelinePage() {
                   List
                 </button>
               </div>
+              {/* Manage stages */}
               <button
-                onClick={() => setAddModal({ open: true, stage: 'saved' })}
+                onClick={() => setManageOpen(true)}
+                title="Manage stages"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/10 text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                <span className="hidden md:inline">Stages</span>
+              </button>
+              <button
+                onClick={() => setAddModal({ open: true, stage: firstStageId })}
                 className="px-4 py-2 md:px-6 md:py-3 rounded-full bg-rp-accent text-white text-sm md:text-base font-medium hover:bg-rp-accent-dk transition-colors"
               >
                 + Add
@@ -1932,16 +2306,18 @@ export default function PipelinePage() {
             }}
           >
             <option value="" disabled>Move to stage…</option>
-            {STAGES.filter(s => s.key !== 'closed').map(s => (
-              <option key={s.key} value={s.key}>{s.label}</option>
+            {stages.filter(s => s.kind !== 'closed').map(s => (
+              <option key={s.id} value={s.id}>{s.label}</option>
             ))}
           </select>
-          <button
-            onClick={() => setBulkConfirm({ action: 'archive' })}
-            className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors"
-          >
-            Archive selected
-          </button>
+          {closedStage && (
+            <button
+              onClick={() => setBulkConfirm({ action: 'archive' })}
+              className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors"
+            >
+              Archive selected
+            </button>
+          )}
           <button
             onClick={() => setSelectedIds(new Set())}
             className="ml-auto text-sm text-rp-text-3 hover:text-rp-text-1 transition-colors"
@@ -1956,7 +2332,7 @@ export default function PipelinePage() {
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 md:p-4" onClick={() => setBulkConfirm(null)}>
           <div className="bg-white rounded-t-2xl md:rounded-2xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-rp-text-1 mb-2">
-              {bulkConfirm.action === 'archive' ? 'Archive applications?' : `Move to ${STAGES.find(s => s.key === bulkConfirm.stage)?.label}?`}
+              {bulkConfirm.action === 'archive' ? 'Archive applications?' : `Move to ${stages.find(s => s.id === bulkConfirm.stage)?.label}?`}
             </h3>
             <p className="text-sm text-rp-text-2 mb-5">
               This will {bulkConfirm.action === 'archive' ? 'archive' : 'move'} {selectedIds.size} application{selectedIds.size > 1 ? 's' : ''}{bulkConfirm.action === 'archive' ? ' to Closed (Withdrew)' : ''}.
@@ -1970,7 +2346,7 @@ export default function PipelinePage() {
               </button>
               <button
                 onClick={() => executeBulkAction(
-                  bulkConfirm.action === 'archive' ? 'closed' : bulkConfirm.stage!,
+                  bulkConfirm.action === 'archive' ? (closedStage?.id ?? bulkConfirm.stage!) : bulkConfirm.stage!,
                   bulkConfirm.action === 'archive' ? 'withdrew' : undefined
                 )}
                 disabled={bulkSaving}
@@ -1983,6 +2359,11 @@ export default function PipelinePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Needs attention */}
+      {!loading && !selectMode && apps.length > 0 && (
+        <NeedsAttentionStrip apps={apps} kindOf={kindOf} onOpen={setDetailApp} />
       )}
 
       {/* Content */}
@@ -2009,15 +2390,15 @@ export default function PipelinePage() {
             <div className="bg-white rounded-2xl border border-rp-border p-6 mb-8">
               <p className="text-xs font-semibold text-rp-text-3 uppercase tracking-wide mb-4">How it works</p>
               <div className="flex items-center justify-between gap-1 overflow-x-auto pb-2">
-                {STAGES.map((s, i) => (
-                  <div key={s.key} className="flex items-center gap-1 flex-shrink-0">
+                {stages.map((s, i) => (
+                  <div key={s.id} className="flex items-center gap-1 flex-shrink-0">
                     <div className="flex flex-col items-center gap-1.5">
-                      <div className={`w-9 h-9 rounded-lg ${s.colour} flex items-center justify-center`}>
+                      <div className={`w-9 h-9 rounded-lg ${stageColourClass(s.colour)} flex items-center justify-center`}>
                         <span className="text-white text-xs font-bold">{i + 1}</span>
                       </div>
                       <span className="text-xs text-rp-text-2 font-medium whitespace-nowrap">{s.label}</span>
                     </div>
-                    {i < STAGES.length - 1 && (
+                    {i < stages.length - 1 && (
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-rp-text-3/40 flex-shrink-0 mb-5">
                         <polyline points="9 6 15 12 9 18" />
                       </svg>
@@ -2047,7 +2428,7 @@ export default function PipelinePage() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
-                onClick={() => setAddModal({ open: true, stage: 'saved' })}
+                onClick={() => setAddModal({ open: true, stage: firstStageId })}
                 className="w-full sm:w-auto px-8 py-3 rounded-full bg-rp-accent text-white font-medium hover:bg-rp-accent-dk transition-colors"
               >
                 + Add your first application
@@ -2062,11 +2443,11 @@ export default function PipelinePage() {
           </div>
         ) : viewMode === 'kanban' ? (
           <div className="flex gap-3 overflow-x-auto pb-6">
-            {STAGES.map(stage => (
+            {stages.map(stage => (
               <KanbanColumn
-                key={stage.key}
+                key={stage.id}
                 stage={stage}
-                apps={appsByStage(stage.key)}
+                apps={appsByStage(stage.id)}
                 onCardClick={setDetailApp}
                 onDragStart={handleDragStart}
                 onDragOver={e => e.preventDefault()}
@@ -2094,7 +2475,7 @@ export default function PipelinePage() {
       {addModal.open && (
         <AddModal
           initialStage={addModal.stage}
-          onClose={() => setAddModal({ open: false, stage: 'saved' })}
+          onClose={() => setAddModal({ open: false, stage: firstStageId })}
           onCreated={handleCreated}
         />
       )}
@@ -2106,6 +2487,21 @@ export default function PipelinePage() {
           onDeleted={handleCardDeleted}
         />
       )}
+      {manageOpen && (
+        <StageManagerModal
+          stages={stages}
+          apps={apps}
+          onClose={() => setManageOpen(false)}
+          onSaved={(next, movedApps) => {
+            setStages(next)
+            if (movedApps.length > 0) {
+              const moved = new Map(movedApps.map(a => [a.id, a]))
+              setApps(prev => prev.map(a => moved.get(a.id) ?? a))
+            }
+          }}
+        />
+      )}
     </div>
+    </StagesContext.Provider>
   )
 }
