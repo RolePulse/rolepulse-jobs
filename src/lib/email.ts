@@ -88,3 +88,30 @@ export async function sendJobAlert(to: string, roleType: string, jobs: { title: 
     html: `<p>New ${roleType} roles posted in the last 24 hours:</p><ul>${jobList}</ul><p><a href="https://rolepulse.com/jobs?role=${roleType}">View all ${roleType} roles →</a></p>`,
   })
 }
+
+export async function sendIngestionStaleAlert(
+  to: string,
+  details: {
+    lastRunAt: string | null
+    runAgeHours: number | null
+    newestJobSeenAt: string | null
+    jobAgeHours: number | null
+    activeJobs: number
+  }
+) {
+  const fmt = (ts: string | null) => (ts ? new Date(ts).toUTCString() : 'never')
+  return getResend().emails.send({
+    from: getFrom(),
+    to,
+    subject: '⚠️ RolePulse job ingestion is stale',
+    html: `<p>The job ingestion pipeline has not refreshed the board recently.</p>
+<ul>
+<li>Last ingestion run: <strong>${fmt(details.lastRunAt)}</strong>${details.runAgeHours != null ? ` (${details.runAgeHours}h ago)` : ''}</li>
+<li>Newest active job seen: <strong>${fmt(details.newestJobSeenAt)}</strong>${details.jobAgeHours != null ? ` (${details.jobAgeHours}h ago)` : ''}</li>
+<li>Active jobs on the board: <strong>${details.activeJobs}</strong></li>
+</ul>
+<p>The ingest workflow runs every 6 hours from GitHub Actions. Check recent runs:</p>
+<p><a href="https://github.com/RolePulse/rolepulse-jobs/actions/workflows/ingest.yml">GitHub Actions → Ingest jobs</a></p>
+<p>— RolePulse ops</p>`,
+  })
+}
