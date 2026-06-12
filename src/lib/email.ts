@@ -54,6 +54,31 @@ export async function sendNewsletterSponsorshipAlert(job: {
   })
 }
 
+export async function sendFollowUpReminder(
+  to: string,
+  items: { jobTitle: string; companyName: string; followUpDate: string; followUpNote: string | null }[],
+  pipelineUrl: string,
+) {
+  const rows = items.map(i => {
+    const note = i.followUpNote ? ` <span style="color:#71717a">(${i.followUpNote})</span>` : ''
+    return `<li style="margin-bottom:6px"><strong>${i.jobTitle}</strong> at <strong>${i.companyName}</strong>, due ${i.followUpDate}${note}</li>`
+  }).join('')
+  const count = items.length
+  return getResend().emails.send({
+    from: getFrom(),
+    to,
+    subject: count === 1
+      ? `Follow-up due: ${items[0].jobTitle} at ${items[0].companyName}`
+      : `${count} follow-ups due in your pipeline`,
+    html: `<p>Hi,</p>
+<p>You asked RolePulse to remind you about ${count === 1 ? 'this application' : 'these applications'}:</p>
+<ul>${rows}</ul>
+<p><a href="${pipelineUrl}">Open your pipeline →</a></p>
+<p>To stop a reminder, clear or move the follow-up date on the card.</p>
+<p>— The RolePulse team</p>`,
+  })
+}
+
 export async function sendJobAlert(to: string, roleType: string, jobs: { title: string; company: string; slug: string }[]) {
   const jobList = jobs.map(j => `<li><a href="https://rolepulse.com/jobs/${j.slug}">${j.title} at ${j.company}</a></li>`).join('')
   return getResend().emails.send({
