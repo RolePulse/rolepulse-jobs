@@ -50,14 +50,17 @@ export async function GET(req: NextRequest) {
     .eq('status', 'active')
 
   const now = Date.now()
-  const ageHours = (ts: string | null | undefined) =>
-    ts ? Math.round(((now - new Date(ts).getTime()) / 3_600_000) * 10) / 10 : null
+  const rawAgeHours = (ts: string | null | undefined) =>
+    ts ? (now - new Date(ts).getTime()) / 3_600_000 : null
+  const round1 = (n: number | null) => (n === null ? null : Math.round(n * 10) / 10)
 
-  const runAgeHours = ageHours(lastRun?.run_at)
-  const jobAgeHours = ageHours(newestJob?.last_seen_at)
+  const rawRunAge = rawAgeHours(lastRun?.run_at)
+  const rawJobAge = rawAgeHours(newestJob?.last_seen_at)
+  const runAgeHours = round1(rawRunAge)
+  const jobAgeHours = round1(rawJobAge)
   const stale =
-    runAgeHours === null || runAgeHours > staleHours ||
-    jobAgeHours === null || jobAgeHours > staleHours
+    rawRunAge === null || rawRunAge > staleHours ||
+    rawJobAge === null || rawJobAge > staleHours
 
   const summary = {
     stale,
