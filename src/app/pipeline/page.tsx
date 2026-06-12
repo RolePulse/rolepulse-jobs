@@ -2080,7 +2080,9 @@ export default function PipelinePage() {
   const [bulkSaving, setBulkSaving] = useState(false)
   const [stages, setStages] = useState<StageConfig[]>(DEFAULT_STAGES)
   const [manageOpen, setManageOpen] = useState(false)
+  const [moveError, setMoveError] = useState<string | null>(null)
   const dragRef = useRef<{ id: string; fromStage: Stage } | null>(null)
+  const moveErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const stagesCtx = useMemo<StagesCtxValue>(() => {
     const map = new Map(stages.map(s => [s.id, s]))
@@ -2135,27 +2137,44 @@ export default function PipelinePage() {
     e.dataTransfer.effectAllowed = 'move'
   }, [])
 
+  const moveCard = useCallback(async (id: string, fromStage: Stage, toStage: Stage) => {
+    // Optimistic update
+    setApps(prev => prev.map(a => a.id === id ? { ...a, stage: toStage } : a))
+
+    let failed = false
+    try {
+      const res = await fetch(`/api/pipeline/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: toStage }),
+      })
+      if (res.ok) {
+        const json = await res.json()
+        setApps(prev => prev.map(a => a.id === json.application.id ? json.application : a))
+        if (detailApp?.id === json.application.id) setDetailApp(json.application)
+      } else {
+        failed = true
+      }
+    } catch {
+      failed = true
+    }
+
+    if (failed) {
+      setApps(prev => prev.map(a => a.id === id ? { ...a, stage: fromStage } : a))
+      setMoveError("That move didn't save, so the card has been put back. Check your connection and try again.")
+      if (moveErrorTimer.current) clearTimeout(moveErrorTimer.current)
+      moveErrorTimer.current = setTimeout(() => setMoveError(null), 6000)
+    }
+  }, [detailApp])
+
   const handleDrop = useCallback(async (e: React.DragEvent, toStage: Stage) => {
     e.preventDefault()
     if (!dragRef.current) return
     const { id, fromStage } = dragRef.current
-    if (fromStage === toStage) return
-
-    // Optimistic update
-    setApps(prev => prev.map(a => a.id === id ? { ...a, stage: toStage } : a))
-
-    const res = await fetch(`/api/pipeline/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stage: toStage }),
-    })
-    if (res.ok) {
-      const json = await res.json()
-      setApps(prev => prev.map(a => a.id === json.application.id ? json.application : a))
-      if (detailApp?.id === json.application.id) setDetailApp(json.application)
-    }
     dragRef.current = null
-  }, [detailApp])
+    if (fromStage === toStage) return
+    await moveCard(id, fromStage, toStage)
+  }, [moveCard])
 
   function handleCardUpdated(updated: Application) {
     setApps(prev => prev.map(a => a.id === updated.id ? updated : a))
@@ -2368,6 +2387,11 @@ export default function PipelinePage() {
 
       {/* Content */}
       <div className="px-4 md:px-6 py-6">
+        {moveError && (
+          <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {moveError}
+          </div>
+        )}
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-6 h-6 border-2 border-rp-accent border-t-transparent rounded-full animate-spin" />
@@ -2463,9 +2487,9 @@ export default function PipelinePage() {
         ) : (
           <div className="md:bg-white md:rounded-2xl md:border md:border-rp-border overflow-hidden">
             <ListView apps={apps} onCardClick={setDetailApp} onStageChange={async (id, newStage) => {
-              setApps(prev => prev.map(a => a.id === id ? { ...a, stage: newStage } : a))
-              const res = await fetch(`/api/pipeline/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stage: newStage }) })
-              if (res.ok) { const json = await res.json(); setApps(prev => prev.map(a => a.id === json.application.id ? json.application : a)) }
+              const current = apps.find(a => a.id === id)
+              if (!current || current.stage === newStage) return
+              await moveCard(id, current.stage, newStage)
             }} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
           </div>
         )}
