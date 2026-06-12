@@ -79,6 +79,16 @@ async function ingestGreenhouse(token: string, companyId: string): Promise<{ cou
   }
 }
 
+// Ashby rate-limits bursts (429) — retry with backoff before giving up
+async function fetchWithRetry(url: string, init?: RequestInit, retries = 2): Promise<Response> {
+  let res = await fetch(url, init)
+  for (let i = 0; i < retries && (res.status === 429 || res.status >= 500); i++) {
+    await new Promise(r => setTimeout(r, 1500 * Math.pow(3, i)))
+    res = await fetch(url, init)
+  }
+  return res
+}
+
 async function ingestAshby(token: string, companyId: string): Promise<{ count: number; error: string | null }> {
   const supabase = getSupabase()
   const ASHBY_GQL = 'https://jobs.ashbyhq.com/api/non-user-graphql'
@@ -90,7 +100,7 @@ async function ingestAshby(token: string, companyId: string): Promise<{ count: n
     }
   }`
   try {
-    const listRes = await fetch(`${ASHBY_GQL}?op=ApiJobBoardWithTeams`, {
+    const listRes = await fetchWithRetry(`${ASHBY_GQL}?op=ApiJobBoardWithTeams`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ operationName: 'ApiJobBoardWithTeams', variables: { organizationHostedJobsPageName: token }, query: listQuery }),
@@ -114,7 +124,8 @@ async function ingestAshby(token: string, companyId: string): Promise<{ count: n
       // Step 2: fetch full description for this posting
       let description = ''
       try {
-        const detailRes = await fetch(`${ASHBY_GQL}?op=ApiJobPosting`, {
+        await new Promise(r => setTimeout(r, 150))
+        const detailRes = await fetchWithRetry(`${ASHBY_GQL}?op=ApiJobPosting`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -226,8 +237,9 @@ export async function runIngestion(opts?: { batchIndex?: number | null; batchSiz
   const errors: Record<string, string> = {}
   const supabase = getSupabase()
 
-  const { data: allCompanies } = await supabase.from('companies').select('*').eq('is_employer', false)
-  if (!allCompanies) return { totalInserted: 0, totalExpired: 0, errors: {} }
+  // Stable order so ?batch=N pagination doesn't skip/duplicate companies across calls
+  const { data: allCompanies } = await supabase.from('companies').select('*').eq('is_employer', false).order('id')
+  if (!allCompanies) return { totalInserted: 0, totalExpired: 0, errors: {}, companiesChecked: 0, totalCompanies: 0 }
 
   // Batch support: if batchIndex provided, slice the company list
   const batchSize = opts?.batchSize ?? 20
@@ -299,5 +311,5 @@ export async function runIngestion(opts?: { batchIndex?: number | null; batchSiz
     })
   }
 
-  return { totalInserted, totalExpired, errors }
+  return { totalInserted, totalExpired, errors, companiesChecked: companies.length, totalCompanies: allCompanies.length }
 }

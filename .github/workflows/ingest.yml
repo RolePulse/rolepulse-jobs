@@ -1,0 +1,54 @@
+name: Ingest jobs
+
+# Vercel Hobby crons are daily-only, so sub-daily ingestion runs from GitHub Actions.
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Run batched ingestion
+        env:
+          INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
+        run: |
+          set -u
+          size=10
+          batch=0
+          total_companies=0
+          inserted_sum=0
+          failures=0
+
+          while :; do
+            resp=$(curl -sS --max-time 320 -X POST \
+              "https://rolepulse-jobs.vercel.app/api/ingest?batch=${batch}&size=${size}" \
+              -H "x-ingest-key: ${INGEST_SECRET}") || resp=""
+
+            if [ -z "$resp" ] || ! echo "$resp" | jq -e '.success == true' > /dev/null 2>&1; then
+              echo "batch ${batch}: FAILED (${resp:0:300})"
+              failures=$((failures + 1))
+              if [ "$failures" -ge 5 ]; then
+                echo "Too many failed batches, aborting"
+                exit 1
+              fi
+            else
+              inserted=$(echo "$resp" | jq -r '.totalInserted // 0')
+              total_companies=$(echo "$resp" | jq -r '.totalCompanies // 0')
+              inserted_sum=$((inserted_sum + inserted))
+              echo "batch ${batch}: upserted=${inserted} totalCompanies=${total_companies}"
+            fi
+
+            batch=$((batch + 1))
+            if [ "$total_companies" -gt 0 ] && [ $((batch * size)) -ge "$total_companies" ]; then
+              break
+            fi
+            if [ "$batch" -ge 80 ]; then
+              echo "Safety cap of 80 batches hit"
+              break
+            fi
+          done
+
+          echo "Done. batches=${batch} jobs_upserted=${inserted_sum} failed_batches=${failures}"
