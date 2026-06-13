@@ -283,15 +283,23 @@ export async function runIngestion(opts?: { batchIndex?: number | null; batchSiz
     }
   }
 
-  // Expire stale jobs (not seen in 30 days)
+  // Expire active stale jobs only. Previously this counted already-expired
+  // rows on every batch, which made ingestion health logs look much worse.
+  const staleCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const { data: staleJobs } = await supabase
     .from('jobs')
     .select('id')
-    .lt('last_seen_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+    .eq('status', 'active')
+    .lt('last_seen_at', staleCutoff)
   const totalExpired = staleJobs?.length || 0
   if (totalExpired > 0) {
-    await supabase.from('jobs').update({ status: 'expired' })
-      .lt('last_seen_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+    const { error: expireError } = await supabase.from('jobs')
+      .update({ status: 'expired' })
+      .eq('status', 'active')
+      .lt('last_seen_at', staleCutoff)
+    if (expireError) {
+      errors.expire_stale_jobs = expireError.message
+    }
   }
 
   const finalStats = {
